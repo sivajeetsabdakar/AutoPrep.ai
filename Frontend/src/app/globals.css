@@ -4,56 +4,58 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 50% 0%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 231 100% 61%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --radius: 0.75rem;
+    /* Study-oriented color palette */
+    --background: 45 100% 98%; /* Cream white for light mode */
+    --foreground: 240 10% 3.9%; /* Dark text for readability */
+    --card: 0 0% 100%; /* Pure white for cards */
+    --card-foreground: 240 10% 3.9%; /* Dark text for cards */
+    --popover: 0 0% 100%; /* Pure white for popovers */
+    --popover-foreground: 240 10% 3.9%; /* Dark text for popovers */
+    --primary: 217 91% 60%; /* Vibrant blue for primary actions */
+    --primary-foreground: 0 0% 98%; /* Light text for primary */
+    --secondary: 210 20% 98%; /* Light gray for secondary elements */
+    --secondary-foreground: 240 10% 3.9%; /* Dark text for secondary */
+    --muted: 210 20% 96%; /* Slightly lighter gray for muted elements */
+    --muted-foreground: 240 3.8% 46.1%; /* Grayish text for muted */
+    --accent: 200 60% 45%; /* Muted blue-green for accents (study-friendly) */
+    --accent-foreground: 0 0% 98%; /* Light text for accents */
+    --destructive: 0 84% 60%; /* Red for destructive actions */
+    --destructive-foreground: 0 0% 98%; /* Light text for destructive */
+    --border: 210 20% 90%; /* Light gray for borders */
+    --input: 210 20% 90%; /* Light gray for inputs */
+    --ring: 217 91% 60%; /* Vibrant blue for focus rings */
+    --radius: 0.75rem; /* Border radius */
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 142 76% 36%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 231 100% 61%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+    /* Dark mode adjustments */
+    --background: 220 30% 10%; /* Darkish blue for dark mode */
+    --foreground: 0 0% 98%; /* Light text for readability */
+    --card: 0 0% 98% / 10%;/* Slightly lighter dark blue for cards */
+    --card-foreground: 0 0% 98%; /* Light text for cards */
+    --popover: 220 30% 15%; /* Slightly lighter dark blue for popovers */
+    --popover-foreground: 0 0% 98%; /* Light text for popovers */
+    --primary: 217 91% 60%; /* Same vibrant blue for primary */
+    --primary-foreground: 0 0% 98%; /* Light text for primary */
+    --secondary: 220 30% 20%; /* Darker blue for secondary elements */
+    --secondary-foreground: 0 0% 98%; /* Light text for secondary */
+    --muted: 220 30% 25%; /* Dark gray-blue for muted elements */
+    --muted-foreground: 240 5% 64.9%; /* Grayish text for muted */
+    --accent: 200 60% 45%; /* Muted blue-green for accents (study-friendly) */
+    --accent-foreground: 0 0% 98%; /* Light text for accents */
+    --destructive: 0 84% 60%; /* Red for destructive actions */
+    --destructive-foreground: 0 0% 98%; /* Light text for destructive */
+    --border: 220 30% 25%; /* Dark gray-blue for borders */
+    --input: 220 30% 25%; /* Dark gray-blue for inputs */
+    --ring: 217 91% 60%; /* Vibrant blue for focus rings */
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border; /* Apply border color */
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground; /* Apply background and text colors */
   }
 }

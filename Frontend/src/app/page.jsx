@@ -27,7 +27,7 @@ export default function Home() {
               </Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="bg-white/10">
-              <Link href="/problem-of-day">
+              <Link href="/problem-of-the-day">
                 Try Daily Problem
               </Link>
             </Button>
@@ -48,7 +48,7 @@ export default function Home() {
               description="Simply upload your textbooks or notes, and our AI will analyze them to create personalized questions."
             />
             <FeatureCard
-              icon={<Brain className="h-12 w-12 text-secondary" />}
+              icon={<Brain className="h-12 w-12 text-accent" />}
               title="AI-Generated Questions"
               description="Get custom practice questions that match your study material and learning style."
             />
