@@ -47,10 +47,15 @@ export default function Generate() {
     formData.append("examType", examType);
     formData.append("subject", subject);
     formData.append("file", file);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes timeout
+
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
 
       if (!response.ok) throw new Error("Failed to generate questions");
@@ -58,8 +63,13 @@ export default function Generate() {
       setGeneratedQuestions(data.questions); // Assuming the response contains the questions in suggestions
       console.log("Generated questions:", data);
     } catch (error) {
-      console.error("Error generating questions:", error);
+      if (error.name === 'AbortError') {
+        console.error("Request timed out");
+      } else {
+        console.error("Error generating questions:", error);
+      }
     } finally {
+      clearTimeout(timeoutId);
       setIsLoading(false);
     }
   };
