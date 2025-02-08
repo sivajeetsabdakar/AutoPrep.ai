@@ -9,7 +9,7 @@ export default function Auth() {
     <main className="min-h-screen bg-background">
       <Navbar />
       
-      <div className="container py-8 max-w-md flex items-center justify-center mx-auto">
+      <div className="p-8 max-w-md flex items-center justify-center mx-auto">
         <Card className="w-full">
           <CardHeader className="text-center">
             <CardTitle>Welcome to AutoPrep.ai</CardTitle>

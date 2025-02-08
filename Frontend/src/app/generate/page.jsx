@@ -4,45 +4,88 @@ import { useState } from "react"
 import { Navbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, FileText } from "lucide-react"
+import { Upload, FileText, Lightbulb } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export default function Generate() {
   const [examType, setExamType] = useState("")
   const [subject, setSubject] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [generatedQuestions, setGeneratedQuestions] = useState([])
-  const [fileUploaded, setFileUploaded] = useState(false)
-
-  const handleGenerate = () => {
-    setIsLoading(true)
-    setTimeout(() => {
-      setGeneratedQuestions([
-        "What is the momentum of a particle with mass 2kg moving at 5m/s?",
-        "Calculate the kinetic energy of the particle.",
-        "If the particle collides elastically with a wall, what is its final velocity?"
-      ])
-      setIsLoading(false)
-    }, 2000)
-  }
+  const [generatedQuestions, setGeneratedQuestions] = useState(null)
+  const [file, setFile] = useState(null)
+  const [selectedAnswers, setSelectedAnswers] = useState({})
+  const [showHints, setShowHints] = useState({})
+  const [showCorrectAnswers, setShowCorrectAnswers] = useState({})
+  const [submittedAnswers, setSubmittedAnswers] = useState({})
+  const toggleShowAnswer = (index) => {
+    setShowCorrectAnswers((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }))
+  };
 
   const handleFileUpload = (event) => {
-    setFileUploaded(event.target.files?.length > 0)
+    if (event.target.files.length > 0) {
+      const selectedFile = event.target.files[0]
+      const reader = new FileReader()
+      reader.readAsDataURL(selectedFile)
+      reader.onloadend = () => {
+        setFile(reader.result.split(",")[1]) // Extract Base64 string
+      }
+    }
   }
+
+  const handleGenerate = async () => {
+    if (!file) return alert("Please upload an image file.");
+
+    setIsLoading(true);
+    const formData = new FormData();
+    formData.append("examType", examType);
+    formData.append("subject", subject);
+    formData.append("file", file);
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error("Failed to generate questions");
+      const data = await response.json();
+      setGeneratedQuestions(data.questions); // Assuming the response contains the questions in suggestions
+      console.log("Generated questions:", data);
+    } catch (error) {
+      console.error("Error generating questions:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleHint = (index) => {
+    setShowHints((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
+  };
+
+  const handleSubmit = (index) => {
+    // Handle answer submission logic here
+  };
 
   return (
     <main className="min-h-screen bg-background">
       <Navbar />
-      
-      <div className="py-8 px-4 md:px-8 lg:px-16">
+
+      <div className="py-8 md:px-8 lg:px-16">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mx-auto">
-          <Card>
+          <Card className="md:mx-4 md:my-4 mx-2 my-2">
             <CardHeader>
               <CardTitle>Generate Questions</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 md:p-6 p-4">
               <div className="space-y-4">
                 <Label>Select Exam Type</Label>
                 <RadioGroup onValueChange={setExamType} className="grid grid-cols-2 gap-4">
@@ -67,7 +110,9 @@ export default function Generate() {
                     <SelectContent>
                       <SelectItem value="physics">Physics</SelectItem>
                       <SelectItem value="chemistry">Chemistry</SelectItem>
-                      <SelectItem value="mathematics">Mathematics</SelectItem>
+                      {examType === "jee" && (
+                        <SelectItem value="mathematics">Mathematics</SelectItem>
+                      )}
                       {examType === "neet" && (
                         <SelectItem value="biology">Biology</SelectItem>
                       )}
@@ -100,46 +145,104 @@ export default function Generate() {
                 </div>
               )}
 
-              <Button 
-                className={`w-full bg-accent hover:bg-accent-dark`} 
+              <Button
+                className={`w-full bg-accent hover:bg-accent-dark`}
                 onClick={handleGenerate}
-                disabled={!examType || !subject || !fileUploaded || isLoading}
+                disabled={!examType || !subject || !file || isLoading}
               >
                 {isLoading ? "Generating..." : "Generate Questions"}
               </Button>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <FileText className="mr-2 h-5 w-5" />
-                Generated Questions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
-                </div>
-              ) : generatedQuestions.length > 0 ? (
-                <div className="space-y-4">
-                  {generatedQuestions.map((question, index) => (
-                    <Card key={index} className="bg-muted">
-                      <CardContent className="p-4">
-                        <p className="font-medium">Question {index + 1}</p>
-                        <p className="text-muted-foreground">{question}</p>
+          {/* Right Side - Generated Questions with Custom Scrollbar */}
+          <ScrollArea className="h-[80vh] overflow-y-auto thin-scrollbar">
+            <Card className="md:mx-4 md:my-4 mx-2 my-2">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <FileText className="mr-2 h-5 w-5" />
+                  Generated Questions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm md:text-base md:p-6 p-4">
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
+                  </div>
+                ) : generatedQuestions && generatedQuestions.length > 0 ? (
+                  generatedQuestions.map((question, index) => (
+                    <Card key={index} className="md:mx-4 md:my-4 my-2">
+                      <CardHeader>
+                        <CardTitle>{`Question ${index + 1}`}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4 md:p-6 p-2">
+                        <img src={question.image} alt={`Question ${index + 1}`} className="w-full h-auto" />
+                        <p>{question.text}</p>
+                        {question.ans.startsWith("I") ? (
+                          <>
+                            <Input
+                              type="number"
+                              placeholder="Enter your answer"
+                              onChange={(e) =>
+                                setSelectedAnswers({ ...selectedAnswers, [index]: e.target.value })
+                              }
+                              className={`border-2 ${submittedAnswers[index] !== undefined
+                                  ? submittedAnswers[index] == question.ans.substring(1)
+                                    ? "border-green-500"
+                                    : "border-red-500"
+                                  : ""
+                                }`}
+                            />
+                            <Button
+                              onClick={() => {
+                                setSubmittedAnswers({ ...submittedAnswers, [index]: selectedAnswers[index] });
+                              }}
+                            >
+                              Submit Answer
+                            </Button>
+                            {submittedAnswers[index] !== undefined &&
+                              submittedAnswers[index] != question.ans.substring(1) && (
+                                <Button variant="outline" onClick={() => toggleShowAnswer(index)}>
+                                  Show Answer
+                                </Button>
+                              )}
+                            {showCorrectAnswers[index] && (
+                              <p className="text-green-500">
+                                Correct Answer: {question.ans.substring(1)}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          [1, 2, 3, 4].slice(0, 4).map((option, optIndex) => {
+                            const isSelected = selectedAnswers[index]?.option === (optIndex + 1).toString();
+                            const isCorrect = isSelected && selectedAnswers[index]?.option === question.ans.toString();
+                            const handleAnswerClick = (qIndex, option) => {
+                              setSelectedAnswers({ ...selectedAnswers, [qIndex]: { option } });
+                            };
+                            return (
+                              <Button
+                                key={optIndex}
+                                className={`my-1 w-full ${isSelected ? (isCorrect ? "bg-green-500 hover:bg-green-500" : "bg-red-500 hover:bg-red-500") : ""
+                                  }`}
+                                onClick={() => handleAnswerClick(index, (optIndex + 1).toString())}
+                                variant="outline"
+                              >
+                                ({option})
+                              </Button>
+                            );
+                          })
+                        )}
+                        <Button variant="outline" onClick={() => toggleHint(index)}>Show Hint</Button>
+                        {showHints[index] && <p className="text-blue-500">Hint: {question.hint}</p>}
                       </CardContent>
                     </Card>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center py-8">
-                  Upload an image to see AI-generated questions here
-                </p>
-              )}
-            </CardContent>
-          </Card>
+                  ))
+                ) : (
+                  <p className="text-center py-8">Upload an image to see AI-generated questions</p>
+                )}
+              </CardContent>
+            </Card>
+          </ScrollArea>
         </div>
       </div>
     </main>

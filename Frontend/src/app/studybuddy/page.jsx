@@ -20,7 +20,7 @@ export default function StudyBuddy() {
     <main className="min-h-screen bg-background">
       <Navbar />
       
-      <div className="container py-8">
+      <div className="p-8">
         <div className="max-w-3xl mx-auto space-y-8">
           <Card>
             <CardHeader>

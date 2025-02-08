@@ -62,7 +62,7 @@ export default function QuestionMe() {
     <main className="min-h-screen bg-background">
       <Navbar />
       
-      <div className="py-8">
+      <div className="p-8">
         <div className="max-w-6xl mx-auto px-4">
           {!started ? (
             <Card>
