@@ -207,12 +207,14 @@ export default function Generate() {
                               onClick={() => {
                                 setSubmittedAnswers({ ...submittedAnswers, [index]: selectedAnswers[index] });
                               }}
+                              className="mr-2"
                             >
                               Submit Answer
                             </Button>
                             {submittedAnswers[index] !== undefined &&
                               submittedAnswers[index] != question.ans.substring(1) && (
-                                <Button variant="outline" onClick={() => toggleShowAnswer(index)}>
+                                <Button variant="outline" onClick={() => toggleShowAnswer(index)}
+                                className="mr-2">
                                   Show Answer
                                 </Button>
                               )}

@@ -49,8 +49,8 @@ export default function Home() {
             />
             <FeatureCard
               icon={<Brain className="h-12 w-12 text-accent" />}
-              title="AI-Generated Questions"
-              description="Get custom practice questions that match your study material and learning style."
+              title="Previous Year Questions based on your notes"
+              description="Get practice PYQs that match your the topics in your uploaded image/text."
             />
             <FeatureCard
               icon={<Target className="h-12 w-12 text-accent" />}
