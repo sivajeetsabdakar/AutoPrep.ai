@@ -6,7 +6,7 @@ from basetoimage import main as extract_image_text
 
 from .service import RagService
 from .config import get_config
-from .database import get_dashboard_metrics
+from .database import get_dashboard_metrics, get_leaderboard
 from .submissions import SubmissionError, submit_question
 
 rag_bp = Blueprint("rag", __name__, url_prefix="/rag")
@@ -94,6 +94,19 @@ def search():
 @rag_bp.get("/dashboard-metrics")
 def dashboard_metrics():
     return jsonify({"status": "success", "metrics": get_dashboard_metrics(get_config())})
+
+
+@rag_bp.get("/leaderboard")
+def leaderboard():
+    return jsonify(
+        {
+            "status": "success",
+            "leaderboard": get_leaderboard(
+                get_config(),
+                limit=_limit(request.args.get("limit"), default=25),
+            ),
+        }
+    )
 
 
 @rag_bp.post("/submit-question")

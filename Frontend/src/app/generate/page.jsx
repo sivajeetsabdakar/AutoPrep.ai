@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Navbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, FileText, Lightbulb } from "lucide-react"
+import { Upload, FileText } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
@@ -18,7 +18,6 @@ export default function Generate() {
   const [generatedQuestions, setGeneratedQuestions] = useState(null)
   const [file, setFile] = useState(null)
   const [selectedAnswers, setSelectedAnswers] = useState({})
-  const [showHints, setShowHints] = useState({})
   const [showCorrectAnswers, setShowCorrectAnswers] = useState({})
   const [submittedAnswers, setSubmittedAnswers] = useState({})
   const [error, setError] = useState("")
@@ -77,13 +76,6 @@ export default function Generate() {
       clearTimeout(timeoutId);
       setIsLoading(false);
     }
-  };
-
-  const toggleHint = (index) => {
-    setShowHints((prev) => ({
-      ...prev,
-      [index]: !prev[index],
-    }));
   };
 
   return (
@@ -251,10 +243,6 @@ export default function Generate() {
                             );
                           })
                         )}
-                        <Button variant="outline" onClick={() => toggleHint(index)}>
-                          {showHints[index] ? "Hide Hint" : "Show Hint"}
-                        </Button>
-                        {showHints[index] && <p className="text-blue-500">Hint: {question.hint}</p>}
                       </CardContent>
                     </Card>
                   ))

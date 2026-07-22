@@ -349,3 +349,84 @@ def get_dashboard_metrics(config: RagConfig) -> dict:
         "weeklyIngest": weekly_ingest,
         "recentActivity": recent_activity,
     }
+
+
+def get_leaderboard(config: RagConfig, limit: int = 25) -> dict:
+    if not config.database_url:
+        return {"entries": [], "summary": {"contributors": 0, "acceptedSubmissions": 0}}
+
+    with get_connection(config) as conn:
+        if conn is None:
+            return {"entries": [], "summary": {"contributors": 0, "acceptedSubmissions": 0}}
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    users.id,
+                    users.name,
+                    users.email,
+                    users.image,
+                    count(question_submissions.id) AS total_submissions,
+                    count(question_submissions.id) FILTER (WHERE question_submissions.status = 'accepted') AS accepted_submissions,
+                    count(question_submissions.id) FILTER (WHERE question_submissions.status = 'rejected') AS rejected_submissions,
+                    max(question_submissions.created_at) AS latest_activity
+                FROM users
+                LEFT JOIN question_submissions ON question_submissions.user_id = users.id
+                GROUP BY users.id
+                HAVING count(question_submissions.id) > 0
+                ORDER BY accepted_submissions DESC, total_submissions DESC, latest_activity DESC NULLS LAST
+                LIMIT %s
+                """,
+                (max(1, min(int(limit), 100)),),
+            )
+            rows = cur.fetchall()
+
+            cur.execute(
+                """
+                SELECT
+                    count(DISTINCT user_id) AS contributors,
+                    count(id) FILTER (WHERE status = 'accepted') AS accepted_submissions
+                FROM question_submissions
+                """
+            )
+            summary_row = cur.fetchone()
+
+    entries = []
+    for rank, row in enumerate(rows, start=1):
+        user_id, name, email, image, total, accepted, rejected, latest_activity = row
+        display_name = name or (email.split("@")[0] if email else "Contributor")
+        accepted = int(accepted or 0)
+        total = int(total or 0)
+        rejected = int(rejected or 0)
+        entries.append(
+            {
+                "rank": rank,
+                "userId": str(user_id),
+                "name": display_name,
+                "avatar": image,
+                "points": accepted * 100,
+                "acceptedSubmissions": accepted,
+                "rejectedSubmissions": rejected,
+                "totalSubmissions": total,
+                "latestActivity": latest_activity.isoformat() if latest_activity else None,
+                "badge": _leaderboard_badge(rank, accepted),
+            }
+        )
+
+    return {
+        "entries": entries,
+        "summary": {
+            "contributors": int(summary_row[0] or 0),
+            "acceptedSubmissions": int(summary_row[1] or 0),
+        },
+    }
+
+
+def _leaderboard_badge(rank: int, accepted_count: int) -> str:
+    if rank == 1 and accepted_count > 0:
+        return "Top contributor"
+    if rank <= 3 and accepted_count > 0:
+        return "Core contributor"
+    if accepted_count > 0:
+        return "Verified contributor"
+    return "New contributor"
