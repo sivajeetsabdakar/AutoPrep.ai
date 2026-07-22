@@ -77,11 +77,11 @@ npm start # or yarn start
 
 ---
 
-## Tech Stack
-- Frontend: React.js
-- Backend: Node.js
-- Database: MongoDB
-- AI & NLP: Python (TF-IDF, NLP libraries)
+## 🛠️ Tech Stack  
+- 🎨 **Frontend:** Next.js / React
+- ⚙️ **Backend:** Python Flask
+- 🗄️ **Database:** Neon Postgres with pgvector
+- 🧠 **AI & NLP:** OCR, retrieval, embeddings, and RAG over the question bank
 
 ---
 

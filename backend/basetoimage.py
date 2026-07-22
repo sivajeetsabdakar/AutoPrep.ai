@@ -1,6 +1,7 @@
 import base64
 import io
 import os
+import tempfile
 from PIL import Image
 from flask import jsonify
 from textextract import TextExtractor, OS
@@ -36,31 +37,25 @@ def decode_base64_to_image(base64_string: str, output_path: str) -> None:
         print(f"Error decoding or saving image: {e}")
 
 def main(base64_string: str) -> str:
-    # Path where the decoded image will be saved
-    image_path = 's1.png'
-    
-    # Decode the base64 string and save the image
-    decode_base64_to_image(base64_string, image_path)
-    
-    # Check if the image was saved correctly
-    if not os.path.exists(image_path):
-        print(f"Error: Image not found at {image_path}")
-        return ""
-    
-    # Create an instance of TextExtractor
-    extractor = TextExtractor()
-   
-    # Extract text from the image
+    image_file = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    image_path = image_file.name
+    image_file.close()
+
     try:
+        decode_base64_to_image(base64_string, image_path)
+        if not os.path.exists(image_path):
+            print(f"Error: Image not found at {image_path}")
+            return ""
+
+        extractor = TextExtractor()
         extracted_text = extractor.extract_text(image_path)
         if not isinstance(extracted_text, str):
             extracted_text = str(extracted_text)
     except Exception as e:
         print(f"Error extracting text: {e}")
         return ""
-    
-    # Optionally, clean up the image file after processing
-    if os.path.exists(image_path):
-        os.remove(image_path)
-    
+    finally:
+        if os.path.exists(image_path):
+            os.remove(image_path)
+
     return extracted_text

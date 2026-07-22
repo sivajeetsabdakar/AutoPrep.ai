@@ -5,11 +5,15 @@ import { Navbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MessageCircle, Upload, Bot } from "lucide-react"
 
 export default function StudyBuddy() {
   const [doubt, setDoubt] = useState("")
   const [response, setResponse] = useState("")
+  const [sources, setSources] = useState([])
+  const [examType, setExamType] = useState("")
+  const [subject, setSubject] = useState("")
   const [isUploading, setIsUploading] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -19,6 +23,8 @@ export default function StudyBuddy() {
     try {
       const formData = new FormData()
       formData.append("doubt", doubt)
+      if (examType) formData.append("examType", examType)
+      if (subject) formData.append("subject", subject)
   
       const res = await fetch("/api/studybuddy", {
         method: "POST",
@@ -30,13 +36,12 @@ export default function StudyBuddy() {
       }
   
       const data = await res.json()
-      console.log("API response data:", data) // Debugging log
-  
-      // Access nested "reply" key safely
-      if (data?.res?.reply) {
-        setResponse(data.res.reply)
+      if (data?.reply) {
+        setResponse(data.reply)
+        setSources(data.sources || [])
       } else {
-        setResponse("No response received from the API.")
+        setResponse(data?.error || "No response received from the API.")
+        setSources([])
       }
     } catch (error) {
       console.error("Error submitting doubt:", error)
@@ -67,6 +72,33 @@ export default function StudyBuddy() {
                 onChange={(e) => setDoubt(e.target.value)}
                 className="min-h-[150px]"
               />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Select onValueChange={(value) => {
+                  setExamType(value)
+                  setSubject("")
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Exam filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="jee">JEE</SelectItem>
+                    <SelectItem value="neet">NEET</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={subject} onValueChange={setSubject} disabled={!examType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Subject filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="physics">Physics</SelectItem>
+                    <SelectItem value="chemistry">Chemistry</SelectItem>
+                    {examType === "jee" && <SelectItem value="mathematics">Mathematics</SelectItem>}
+                    {examType === "neet" && <SelectItem value="biology">Biology</SelectItem>}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <div className="space-y-4">
                 <div className="border-2 border-dashed rounded-lg p-4">
@@ -112,8 +144,22 @@ export default function StudyBuddy() {
               <CardHeader>
                 <CardTitle>StudyBuddy's Response</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">{response}</p>
+              <CardContent className="space-y-4">
+                <p className="text-muted-foreground whitespace-pre-line">{response}</p>
+                {sources.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">Retrieved Sources</p>
+                    {sources.slice(0, 3).map((source, index) => (
+                      <div key={source.id || index} className="rounded-md border p-3 text-sm">
+                        <p className="font-medium">
+                          {source.examType?.toUpperCase()} {source.subject}
+                          {source.chapter ? ` - ${source.chapter}` : ""}
+                        </p>
+                        {source.text && <p className="text-muted-foreground mt-1">{source.text}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

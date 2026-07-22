@@ -26,7 +26,6 @@ export default function QuestionMe() {
       try {
         const response = await fetch(`/api/get-questions?examType=${examType}`)
         const data = await response.json()
-        console.log("Questions:", data)
         setQuestions(data.questions) // Store images
         setSolutions(data.solutions) // Store solutions
       } catch (error) {
@@ -45,8 +44,6 @@ export default function QuestionMe() {
   const handleStart = () => setStarted(true)
 
   const handleSubmit = (index) => {
-    const isCorrect = selectedAnswers[index]?.trim() === solutions[index]
-    console.log(`Question ${index + 1} is ${isCorrect ? "correct" : "incorrect"}`)
     setSubmittedAnswers(prev => ({ ...prev, [index]: selectedAnswers[index] }))
   }
 
@@ -112,7 +109,7 @@ export default function QuestionMe() {
                         <img src={question} alt={`Question ${index + 1}`} className="w-full max-h-32 object-contain" />
                                     
                         {/* Check if Solution is Numeric (Integer-based Answer) */}
-                        {solutions[index].startsWith("I") ? (
+                        {(solutions[index] || "").startsWith("I") ? (
                           <>
                             <Input
                               type="number"

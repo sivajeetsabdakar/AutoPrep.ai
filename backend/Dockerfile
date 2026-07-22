@@ -22,9 +22,9 @@ COPY requirements.txt ./requirements.txt
 
 # Upgrade pip, setuptools, wheel, and Cython
 RUN pip install --upgrade pip setuptools wheel cython && \
-    pip install --no-build-isolation -r req.txt
+    pip install --no-build-isolation -r requirements.txt
     
-RUN python -m nltk.downloader punkt_tab
+RUN python -m nltk.downloader punkt punkt_tab stopwords
 
 # Copy the backend code (including server.py and other files) into the container
 COPY . /app
@@ -37,4 +37,4 @@ ENV FLASK_APP=server
 ENV FLASK_RUN_HOST=0.0.0.0
 
 # Start the Flask server
-CMD ["flask", "run"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "server:app"]

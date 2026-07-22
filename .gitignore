@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# Environment
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Local/editor artifacts
+tempCodeRunnerFile.py
+.DS_Store
+Thumbs.db
+
+# Runtime uploads
+uploads/

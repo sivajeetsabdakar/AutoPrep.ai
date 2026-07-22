@@ -21,6 +21,7 @@ export default function Generate() {
   const [showHints, setShowHints] = useState({})
   const [showCorrectAnswers, setShowCorrectAnswers] = useState({})
   const [submittedAnswers, setSubmittedAnswers] = useState({})
+  const [error, setError] = useState("")
   const toggleShowAnswer = (index) => {
     setShowCorrectAnswers((prev) => ({
       ...prev,
@@ -43,6 +44,8 @@ export default function Generate() {
     if (!file) return alert("Please upload an image file.");
 
     setIsLoading(true);
+    setError("");
+    setGeneratedQuestions(null);
     const formData = new FormData();
     formData.append("examType", examType);
     formData.append("subject", subject);
@@ -58,15 +61,17 @@ export default function Generate() {
         signal: controller.signal,
       });
 
-      if (!response.ok) throw new Error("Failed to generate questions");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to generate questions");
+      }
       const data = await response.json();
-      setGeneratedQuestions(data.questions); // Assuming the response contains the questions in suggestions
-      console.log("Generated questions:", data);
+      setGeneratedQuestions(data.questions || []);
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.error("Request timed out");
+        setError("The request timed out. Try a clearer image or a smaller file.");
       } else {
-        console.error("Error generating questions:", error);
+        setError(error.message || "Could not generate questions.");
       }
     } finally {
       clearTimeout(timeoutId);
@@ -79,10 +84,6 @@ export default function Generate() {
       ...prev,
       [index]: !prev[index],
     }));
-  };
-
-  const handleSubmit = (index) => {
-    // Handle answer submission logic here
   };
 
   return (
@@ -162,6 +163,7 @@ export default function Generate() {
               >
                 {isLoading ? "Generating..." : "Generate Questions"}
               </Button>
+              {error && <p className="text-sm text-red-500">{error}</p>}
             </CardContent>
           </Card>
 
@@ -186,9 +188,14 @@ export default function Generate() {
                         <CardTitle>{`Question ${index + 1}`}</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4 md:p-6 p-2">
-                        <img src={question.image} alt={`Question ${index + 1}`} className="w-full h-auto" />
-                        <p>{question.text}</p>
-                        {question.ans.startsWith("I") ? (
+                        {question.image && (
+                          <img src={question.image} alt={`Question ${index + 1}`} className="w-full h-auto" />
+                        )}
+                        {question.text && <p>{question.text}</p>}
+                        {question.chapter && (
+                          <p className="text-xs text-muted-foreground">Chapter: {question.chapter}</p>
+                        )}
+                        {(question.ans || "").startsWith("I") ? (
                           <>
                             <Input
                               type="number"
@@ -227,7 +234,7 @@ export default function Generate() {
                         ) : (
                           [1, 2, 3, 4].slice(0, 4).map((option, optIndex) => {
                             const isSelected = selectedAnswers[index]?.option === (optIndex + 1).toString();
-                            const isCorrect = isSelected && selectedAnswers[index]?.option === question.ans.toString();
+                            const isCorrect = isSelected && selectedAnswers[index]?.option === (question.ans || "").toString();
                             const handleAnswerClick = (qIndex, option) => {
                               setSelectedAnswers({ ...selectedAnswers, [qIndex]: { option } });
                             };
@@ -244,7 +251,9 @@ export default function Generate() {
                             );
                           })
                         )}
-                        <Button variant="outline" onClick={() => toggleHint(index)}>Show Hint</Button>
+                        <Button variant="outline" onClick={() => toggleHint(index)}>
+                          {showHints[index] ? "Hide Hint" : "Show Hint"}
+                        </Button>
                         {showHints[index] && <p className="text-blue-500">Hint: {question.hint}</p>}
                       </CardContent>
                     </Card>

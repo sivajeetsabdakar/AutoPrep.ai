@@ -8,12 +8,18 @@ from methsData import MathsData
 from flask_cors import CORS
 from highLight import highLight
 from basetoimage import main
+from rag import rag_bp
 import base64 
+import os
+import random
 import pandas as pd
+from dotenv import load_dotenv
 
+load_dotenv()
 app = Flask(__name__)
-app.config['debug'] = True
-CORS(app=app)
+app.config['debug'] = os.getenv("FLASK_DEBUG", "0") == "1"
+CORS(app=app, origins=os.getenv("CORS_ORIGINS", "*").split(","))
+app.register_blueprint(rag_bp)
 @app.route('/get-example', methods=['GET'])
 def get_example():
     data = {
@@ -21,10 +27,6 @@ def get_example():
         'status': 'success'
     }
     return jsonify(data)
-  
-import random
-import os
-
 def get_random_questions(exam_type):
     """Fetch random questions from the respective CSV files based on the exam type."""
     question_files = []
@@ -245,4 +247,4 @@ def extracted_text():
         print("Error in text extraction:", e)
         return jsonify({"error": "Failed to extract text"}), 500
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=app.config['debug'])

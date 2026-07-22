@@ -7,9 +7,11 @@ import { ThemeToggle } from "./ui/theme-toggle"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { signOut, useSession } from "next-auth/react"
 
 export function Navbar() {
   const pathname = usePathname()
+  const { data: session } = useSession()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -28,6 +30,7 @@ export function Navbar() {
     { href: "/question-me", label: "Question Me" },
     { href: "/explore", label: "Explore" },
     { href: "/studybuddy", label: "Ask StudyBuddy" },
+    { href: "/submit-question", label: "Submit Question" },
     { href: "/dashboard", label: "My Progress" },
     { href: "/leaderboard", label: "Leaderboard" }
   ]
@@ -48,9 +51,15 @@ export function Navbar() {
         
         <div className="ml-auto flex items-center space-x-4">
           <ThemeToggle />
-          <Button variant="secondary" asChild>
-            <Link href="/auth">Sign In</Link>
-          </Button>
+          {session?.user ? (
+            <Button variant="secondary" onClick={() => signOut({ callbackUrl: "/" })}>
+              Sign Out
+            </Button>
+          ) : (
+            <Button variant="secondary" asChild>
+              <Link href="/auth">Sign In</Link>
+            </Button>
+          )}
           {isMobile && (
             <button onClick={() => setIsMenuOpen(!isMenuOpen)}>
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
