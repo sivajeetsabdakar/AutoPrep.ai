@@ -388,3 +388,382 @@ curl http://localhost:5000/rag/health
 - Some older backend TF-IDF modules remain for compatibility and fallback.
 - Full production ingestion should be run after confirming Gemini quota and Neon schema.
 
+## 13. Current Implementation Update
+
+This section was added after the latest implementation pass. It does not remove the earlier analysis; it records what changed after the first RAG/auth/submission rollout.
+
+### Production URLs and Repository Deployment
+
+Current production frontend:
+
+```txt
+https://autoprep-ai-theta.vercel.app/
+```
+
+The Vercel project is connected to the GitHub repository:
+
+```txt
+github.com/sivajeetsabdakar/AutoPrep.ai
+```
+
+Because the repository contains both backend and frontend code, Vercel is configured with:
+
+```txt
+Root Directory: Frontend
+Production Branch: main
+Framework: Next.js
+```
+
+This means pushes to `main` trigger frontend production deployments automatically. The backend is deployed separately on an OCI Oracle VM as a Dockerized Flask/Gunicorn service.
+
+### Provider-Neutral UI
+
+The UI no longer exposes the underlying model/provider name in student-facing text. For example, the submission page now says "AI validation" instead of naming the validation provider. Technical configuration and internal documentation can still reference providers because they matter for deployment, debugging, and cost/quotas.
+
+### Updated Frontend Page Status
+
+Several pages that were earlier static/prototype surfaces have now been moved to live data:
+
+- `/dashboard` uses real Neon/RAG metrics through `/api/dashboard-metrics`.
+- `/leaderboard` uses real user submission/contribution data through `/api/leaderboard`.
+- `/problem-of-the-day` uses real daily questions from Neon `question_chunks` through `/api/problem-of-the-day`.
+- `/explore` uses a live education news RSS feed with official-source fallbacks.
+- `/studybuddy` persists previous chat turns in browser local storage and sends recent conversation context to the backend.
+
+Static fake names, fake dashboard metrics, fake leaderboard rows, fake daily-problem streaks, and fake homepage testimonials/stats were removed from the implemented UI surfaces.
+
+## 14. Expanded RAG Architecture
+
+The RAG system is now the central knowledge layer for Generate, StudyBuddy, user submissions, dashboard metrics, leaderboard contribution tracking, and daily practice.
+
+### RAG Data Model
+
+The main retrieval table is still:
+
+```txt
+question_chunks
+```
+
+Each row represents one searchable question item. The important fields are:
+
+- `external_id` - stable id from CSV ingestion or `submission:{id}` for accepted user uploads.
+- `exam_type` - `jee` or `neet`.
+- `subject` - physics, chemistry, mathematics, or biology depending on exam.
+- `chapter` - optional extracted or CSV-provided chapter/topic.
+- `question_text` - text used for display and retrieval.
+- `answer` - stored answer used for answer checking and StudyBuddy context.
+- `image` - original/base64 question image when available.
+- `source` - CSV/source marker or `user_submission`.
+- `embedding vector(384)` - semantic vector used by pgvector search.
+- `created_at` / `updated_at` - used for dashboard activity and weekly ingest charts.
+
+The most important design decision is that accepted user submissions become rows in the same `question_chunks` table. This means new validated questions immediately become available to all RAG-powered flows without a second data format.
+
+### Retrieval Path
+
+For semantic retrieval:
+
+1. The frontend sends a search-like user input to a Next.js API route.
+2. The Next.js API route proxies the request to Flask.
+3. Flask calls `RagService.retrieve()`.
+4. The query is embedded as `RETRIEVAL_QUERY`.
+5. `search_pgvector()` searches Neon with optional exam/subject filters.
+6. Rows are sorted by cosine distance using pgvector.
+7. The backend formats rows into frontend-safe source objects.
+
+The query similarity score is computed as:
+
+```sql
+1 - (embedding <=> %s::vector) AS score
+```
+
+The HNSW index keeps this fast:
+
+```sql
+CREATE INDEX question_chunks_embedding_hnsw_idx
+ON question_chunks USING hnsw (embedding vector_cosine_ops);
+```
+
+If vector retrieval fails, `RagService.retrieve()` falls back to CSV search. That fallback exists for development resilience and old-data compatibility; production should normally use Neon pgvector.
+
+### Generate Page RAG
+
+The Generate flow is retrieval-based, not free-form question invention.
+
+Current flow:
+
+```txt
+/generate
+  -> /api/generate
+  -> /rag/generate-questions
+  -> OCR text extraction
+  -> query embedding
+  -> pgvector search
+  -> matching question_chunks
+  -> frontend answerable cards
+```
+
+The user uploads an image, the backend extracts searchable text, and RAG retrieves the closest stored questions. This keeps practice grounded in the actual indexed question bank.
+
+### StudyBuddy RAG and Conversation Memory
+
+StudyBuddy now has three grounding layers:
+
+1. Current student message.
+2. Recent local conversation history.
+3. Retrieved question-bank context.
+
+Frontend behavior:
+
+- Chat messages are stored in browser `localStorage` under `autoprep.studybuddy.messages`.
+- The most recent user/assistant turns are sent to `/api/studybuddy`.
+- Retrieved sources are shown below the assistant answer.
+- Retrieved question cards are interactive: students can click MCQ options or enter integer answers.
+- The UI gives correct/wrong feedback using the stored answer from `question_chunks`.
+
+Backend behavior:
+
+```txt
+/rag/studybuddy
+  -> RagService.answer()
+  -> retrieve(doubt, exam_type, subject)
+  -> _build_studybuddy_prompt(doubt, sources, history)
+  -> external chat API or fallback response
+```
+
+The StudyBuddy system prompt instructs the assistant to:
+
+- act as a focused JEE/NEET tutor,
+- use RAG context when relevant,
+- use previous conversation naturally for follow-ups,
+- avoid inventing question-bank facts,
+- redirect unsafe or cheating-oriented requests back to learning,
+- keep answers concise unless the student asks for more depth.
+
+The retrieved source cards are intentionally separate from the generated explanation. This lets the student both read the tutor response and directly practice matching retrieved questions.
+
+### User Submission to RAG
+
+The authenticated submission flow extends the RAG index with validated user content.
+
+Current flow:
+
+```txt
+/submit-question
+  -> NextAuth session required
+  -> image upload max 5MB
+  -> /api/submit-question
+  -> /rag/submit-question
+  -> AI validation/extraction
+  -> duplicate check with embedding similarity
+  -> question_submissions audit row
+  -> accepted question_chunks row
+```
+
+Important safeguards:
+
+- Upload must be an image.
+- Upload must be at most 5MB.
+- The image must contain a JEE/NEET-style question.
+- An answer must be detected.
+- Exam/subject combinations are restricted:
+  - JEE: physics, chemistry, mathematics
+  - NEET: physics, chemistry, biology
+- Low-confidence validation is rejected.
+- Duplicates are rejected using embedding similarity against existing `question_chunks`.
+
+Accepted rows use:
+
+```txt
+source = user_submission
+external_id = submission:{submission_id}
+```
+
+Rejected rows stay in `question_submissions` for audit/history but are not inserted into `question_chunks`, so they do not pollute retrieval.
+
+### Duplicate Detection
+
+Duplicate detection uses the same embedding stack as retrieval:
+
+1. Extracted question + answer text is embedded.
+2. The backend searches `question_chunks` filtered by exam and subject.
+3. The closest match is inspected.
+4. If similarity is above `DUPLICATE_SCORE_THRESHOLD`, the submission is rejected.
+
+Default threshold:
+
+```env
+DUPLICATE_SCORE_THRESHOLD=0.92
+```
+
+This protects the RAG index from repeated submissions and keeps leaderboard/contribution counts meaningful.
+
+### Daily Problem RAG
+
+`/problem-of-the-day` is no longer a hardcoded sample page.
+
+Frontend path:
+
+```txt
+/problem-of-the-day
+  -> /api/problem-of-the-day?examType=jee|neet
+  -> /rag/problem-of-the-day
+```
+
+Backend path:
+
+```txt
+get_problem_of_the_day(config, exam_type)
+  -> select one daily question per subject from question_chunks
+```
+
+Subject sets:
+
+```txt
+JEE:  physics, chemistry, mathematics
+NEET: physics, chemistry, biology
+```
+
+The selection uses a stable daily rotation:
+
+```sql
+row_number() OVER (
+  PARTITION BY subject
+  ORDER BY md5(COALESCE(external_id, id::text) || current_date::text)
+) AS daily_rank
+```
+
+This means:
+
+- the same day returns stable questions,
+- a new calendar date rotates the selected questions,
+- every subject gets one daily item when rows exist,
+- the source is real Neon data, not a frontend fixture.
+
+The frontend then normalizes the stored answer and supports:
+
+- MCQ option selection,
+- integer-answer input,
+- immediate correct/wrong feedback,
+- correct answer reveal only after an incorrect submission.
+
+### Dashboard Metrics from RAG
+
+`/dashboard` now calls:
+
+```txt
+/api/dashboard-metrics
+  -> /rag/dashboard-metrics
+```
+
+The backend aggregates live data from Neon:
+
+- total indexed questions from `question_chunks`,
+- accepted submission count,
+- rejected submission count,
+- contributor count from `users`,
+- subject breakdown,
+- exam breakdown,
+- weekly ingest counts,
+- recent RAG/submission activity.
+
+This turns the dashboard into a platform/RAG health view instead of fake personal progress metrics.
+
+### Leaderboard from RAG Contributions
+
+`/leaderboard` now calls:
+
+```txt
+/api/leaderboard
+  -> /rag/leaderboard
+```
+
+The leaderboard is based on real authenticated user submission activity:
+
+- users come from the Neon `users` table,
+- accepted/rejected/total counts come from `question_submissions`,
+- points are derived from accepted submissions,
+- entries only appear after users submit real questions.
+
+Current scoring:
+
+```txt
+points = accepted_submissions * 100
+```
+
+This intentionally avoids fake rows. If there are no approved contributors, the page shows an honest empty state.
+
+### Explore Page
+
+The Explore page was changed from old hardcoded 2024 content to live education news via RSS, with official NTA/JEE/NEET fallback cards. It is not part of RAG retrieval, but it now follows the same principle: avoid stale static data in production UI.
+
+## 15. Current Live API Surface
+
+Important backend RAG routes:
+
+- `GET /rag/health`
+- `POST /rag/search`
+- `POST /rag/generate-questions`
+- `POST /rag/studybuddy`
+- `POST /rag/submit-question`
+- `GET /rag/dashboard-metrics`
+- `GET /rag/leaderboard`
+- `GET /rag/problem-of-the-day?examType=jee|neet`
+
+Important frontend proxy routes:
+
+- `GET /api/problem-of-the-day`
+- `GET /api/dashboard-metrics`
+- `GET /api/leaderboard`
+- `POST /api/studybuddy`
+- `POST /api/generate`
+- `POST /api/submit-question`
+- `GET /api/get-questions`
+- `/api/auth/[...nextauth]`
+
+## 16. Verification Snapshot
+
+Latest verification commands used:
+
+```sh
+python -m compileall backend -q
+cd Frontend
+npm run lint
+npm run build
+```
+
+Live checks performed after deployment:
+
+```txt
+GET https://autoprep-ai-theta.vercel.app/problem-of-the-day -> 200
+GET https://autoprep-ai-theta.vercel.app/submit-question -> 200
+GET https://autoprep-ai-theta.vercel.app/leaderboard -> 200
+GET https://autoprep-ai-theta.vercel.app/question-me -> 200
+GET https://autoprep-ai-theta.vercel.app/ -> 200
+```
+
+The live daily problem API returned real JEE subject coverage:
+
+```txt
+physics, chemistry, mathematics
+```
+
+The backend daily problem endpoint also returned NEET coverage:
+
+```txt
+physics, chemistry, biology
+```
+
+## 17. Updated Known Limitations and Next Improvements
+
+The earlier known limitations still matter, but the static/prototype statement has been reduced in scope by the recent work. The largest remaining improvements are:
+
+- Persist personal quiz attempts and daily-problem results per authenticated user instead of browser-only/session-only checking.
+- Add a real `question_attempts` table for per-user accuracy, streaks, solved counts, and personal progress.
+- Move base64 image storage from Neon rows to object storage once volume grows.
+- Add admin review/moderation for accepted and rejected user submissions.
+- Add source-quality labels to distinguish CSV-ingested rows from user-submitted rows.
+- Add better option parsing for questions whose choices are stored in unusual formats or only as images.
+- Add server-side answer checking endpoints if client-side answer reveal needs stricter anti-cheat behavior.
+- Add automated end-to-end tests for submission, RAG search, daily problem answer checking, and StudyBuddy source cards.
+
