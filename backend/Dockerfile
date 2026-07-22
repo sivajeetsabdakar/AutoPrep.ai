@@ -18,7 +18,7 @@ RUN apt-get update && \
 RUN tesseract --version
 
 # Copy Python dependencies from the backend folder
-COPY requirements.txt ./requirements.txt
+COPY requirements.deploy.txt ./requirements.txt
 
 # Upgrade pip, setuptools, wheel, and Cython
 RUN pip install --upgrade pip setuptools wheel cython && \
