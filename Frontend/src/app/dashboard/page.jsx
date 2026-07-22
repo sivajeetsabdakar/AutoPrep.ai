@@ -1,102 +1,160 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
 import { Navbar } from "@/components/navbar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Brain, Target, Trophy, TrendingUp } from "lucide-react"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { Brain, Database, FileCheck2, RefreshCw, Target, Users } from "lucide-react"
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
-const performanceData = [
-  { date: "Mon", score: 65 },
-  { date: "Tue", score: 75 },
-  { date: "Wed", score: 70 },
-  { date: "Thu", score: 85 },
-  { date: "Fri", score: 80 },
-  { date: "Sat", score: 90 },
-  { date: "Sun", score: 88 },
-]
+const EMPTY_METRICS = {
+  questionCount: 0,
+  acceptedSubmissionCount: 0,
+  rejectedSubmissionCount: 0,
+  contributorCount: 0,
+  subjectBreakdown: [],
+  examBreakdown: [],
+  weeklyIngest: [],
+  recentActivity: [],
+}
 
 export default function Dashboard() {
+  const [metrics, setMetrics] = useState(EMPTY_METRICS)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadMetrics() {
+      try {
+        const response = await fetch("/api/dashboard-metrics", { cache: "no-store" })
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to load metrics")
+        }
+        if (isMounted) {
+          setMetrics(data.metrics || EMPTY_METRICS)
+          setError("")
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err.message || "Failed to load metrics")
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadMetrics()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const totalSubmissions = metrics.acceptedSubmissionCount + metrics.rejectedSubmissionCount
+  const acceptanceRate = totalSubmissions ? Math.round((metrics.acceptedSubmissionCount / totalSubmissions) * 100) : 0
+  const maxSubjectCount = Math.max(...metrics.subjectBreakdown.map((item) => item.total), 1)
+
+  const examSummary = useMemo(
+    () =>
+      metrics.examBreakdown
+        .map((item) => `${item.examType?.toUpperCase()}: ${formatNumber(item.total)}`)
+        .join(" / ") || "No exam data yet",
+    [metrics.examBreakdown],
+  )
+
   return (
     <main className="min-h-screen bg-background">
       <Navbar />
-      
-      <div className="p-8">
-        {/* Stats Overview */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+
+      <div className="p-4 md:p-8">
+        <div className="mb-8 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold">Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Live platform metrics from Neon and the RAG index</p>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            {isLoading ? "Loading metrics" : "Live metrics"}
+          </div>
+        </div>
+
+        {error && (
+          <Card className="mb-8 border-destructive">
+            <CardContent className="p-4 text-sm text-destructive">{error}</CardContent>
+          </Card>
+        )}
+
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            icon={<Trophy className="h-5 w-5 text-accent" />}
-            title="Total Points"
-            value="2,500"
-            subtitle="Top 10%"
+            icon={<Database className="h-5 w-5 text-accent" />}
+            title="Indexed Questions"
+            value={formatNumber(metrics.questionCount)}
+            subtitle={examSummary}
+          />
+          <StatCard
+            icon={<FileCheck2 className="h-5 w-5 text-secondary" />}
+            title="Accepted Submissions"
+            value={formatNumber(metrics.acceptedSubmissionCount)}
+            subtitle={`${acceptanceRate}% acceptance rate`}
+          />
+          <StatCard
+            icon={<Users className="h-5 w-5 text-accent" />}
+            title="Contributors"
+            value={formatNumber(metrics.contributorCount)}
+            subtitle="Google-auth users in Neon"
           />
           <StatCard
             icon={<Brain className="h-5 w-5 text-secondary" />}
-            title="Questions Solved"
-            value="156"
-            subtitle="+23 this week"
-          />
-          <StatCard
-            icon={<TrendingUp className="h-5 w-5 text-accent" />}
-            title="Current Streak"
-            value="7 days"
-            subtitle="Personal best!"
-          />
-          <StatCard
-            icon={<Target className="h-5 w-5 text-secondary" />}
-            title="Accuracy"
-            value="85%"
-            subtitle="+5% from last week"
+            title="Subjects Covered"
+            value={formatNumber(metrics.subjectBreakdown.length)}
+            subtitle="Available for RAG retrieval"
           />
         </div>
 
-        {/* Performance Chart */}
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle>Weekly Performance</CardTitle>
+            <CardTitle>New RAG Items This Week</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={performanceData}>
+                <BarChart data={metrics.weeklyIngest}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
-                  <YAxis />
+                  <YAxis allowDecimals={false} />
                   <Tooltip />
-                  <Line 
-                    type="monotone" 
-                    dataKey="score" 
-                    stroke="hsl(var(--accent))" 
-                    strokeWidth={2}
-                  />
-                </LineChart>
+                  <Bar dataKey="items" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Subject Progress */}
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid gap-8 md:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Subject Progress</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-accent" />
+                Subject Coverage
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <SubjectProgress
-                subject="Physics"
-                progress={75}
-                topics={["Mechanics", "Thermodynamics", "Optics"]}
-              />
-              <SubjectProgress
-                subject="Chemistry"
-                progress={60}
-                topics={["Organic", "Inorganic", "Physical"]}
-              />
-              <SubjectProgress
-                subject="Mathematics"
-                progress={85}
-                topics={["Calculus", "Algebra", "Geometry"]}
-              />
+              {metrics.subjectBreakdown.length ? (
+                metrics.subjectBreakdown.map((item) => (
+                  <SubjectCoverage
+                    key={item.subject}
+                    subject={item.subject}
+                    total={item.total}
+                    progress={Math.round((item.total / maxSubjectCount) * 100)}
+                  />
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">No indexed questions found yet.</p>
+              )}
             </CardContent>
           </Card>
 
@@ -106,20 +164,19 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[
-                  { action: "Solved Problem of the Day", time: "2 hours ago", points: "+100" },
-                  { action: "Completed Physics Quiz", time: "5 hours ago", points: "+250" },
-                  { action: "Achieved 7-day Streak", time: "1 day ago", points: "+500" },
-                  { action: "Generated Practice Questions", time: "2 days ago", points: "+150" },
-                ].map((activity, i) => (
-                  <div key={i} className="flex items-center justify-between py-2">
-                    <div>
-                      <p className="font-medium">{activity.action}</p>
-                      <p className="text-sm text-muted-foreground">{activity.time}</p>
+                {metrics.recentActivity.length ? (
+                  metrics.recentActivity.map((activity, index) => (
+                    <div key={`${activity.time}-${index}`} className="flex items-start justify-between gap-4 border-b py-2 last:border-0">
+                      <div>
+                        <p className="font-medium">{activity.action}</p>
+                        <p className="text-sm text-muted-foreground">{activity.detail}</p>
+                      </div>
+                      <span className="shrink-0 text-xs text-muted-foreground">{formatRelativeTime(activity.time)}</span>
                     </div>
-                    <span className="text-secondary font-medium">{activity.points}</span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No recent RAG or submission activity yet.</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -133,7 +190,7 @@ function StatCard({ icon, title, value, subtitle }) {
   return (
     <Card>
       <CardContent className="p-6">
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           {icon}
           <span className="text-sm font-medium">{title}</span>
         </div>
@@ -146,21 +203,33 @@ function StatCard({ icon, title, value, subtitle }) {
   )
 }
 
-function SubjectProgress({ subject, progress, topics }  ) {
+function SubjectCoverage({ subject, total, progress }) {
   return (
     <div className="space-y-2">
-      <div className="flex justify-between">
-        <span className="font-medium">{subject}</span>
-        <span className="text-muted-foreground">{progress}%</span>
+      <div className="flex justify-between gap-4">
+        <span className="font-medium capitalize">{subject}</span>
+        <span className="text-muted-foreground">{formatNumber(total)} questions</span>
       </div>
       <Progress value={progress} className="h-2" />
-      <div className="flex gap-2 flex-wrap">
-        {topics.map((topic) => (
-          <span key={topic} className="text-xs bg-muted px-2 py-1 rounded">
-            {topic}
-          </span>
-        ))}
-      </div>
     </div>
   )
+}
+
+function formatNumber(value) {
+  return new Intl.NumberFormat("en-IN").format(value || 0)
+}
+
+function formatRelativeTime(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "recently"
+
+  const diffMs = Date.now() - date.getTime()
+  const minutes = Math.max(1, Math.round(diffMs / 60000))
+  if (minutes < 60) return `${minutes}m ago`
+
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+
+  const days = Math.round(hours / 24)
+  return `${days}d ago`
 }

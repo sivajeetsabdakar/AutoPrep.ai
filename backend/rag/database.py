@@ -237,3 +237,115 @@ def record_question_submission(config: RagConfig, user: dict, submission: dict) 
         "question_chunk_id": chunk_id,
         "user_id": user_id,
     }
+
+
+def get_dashboard_metrics(config: RagConfig) -> dict:
+    if not config.database_url:
+        return {
+            "questionCount": 0,
+            "acceptedSubmissionCount": 0,
+            "rejectedSubmissionCount": 0,
+            "contributorCount": 0,
+            "subjectBreakdown": [],
+            "examBreakdown": [],
+            "weeklyIngest": [],
+            "recentActivity": [],
+        }
+
+    with get_connection(config) as conn:
+        if conn is None:
+            return {}
+        with conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM question_chunks")
+            question_count = cur.fetchone()[0]
+
+            cur.execute("SELECT count(*) FROM question_submissions WHERE status = 'accepted'")
+            accepted_submission_count = cur.fetchone()[0]
+
+            cur.execute("SELECT count(*) FROM question_submissions WHERE status = 'rejected'")
+            rejected_submission_count = cur.fetchone()[0]
+
+            cur.execute("SELECT count(*) FROM users")
+            contributor_count = cur.fetchone()[0]
+
+            cur.execute(
+                """
+                SELECT subject, count(*) AS total
+                FROM question_chunks
+                GROUP BY subject
+                ORDER BY total DESC, subject ASC
+                """
+            )
+            subject_breakdown = [{"subject": row[0], "total": row[1]} for row in cur.fetchall()]
+
+            cur.execute(
+                """
+                SELECT exam_type, count(*) AS total
+                FROM question_chunks
+                GROUP BY exam_type
+                ORDER BY exam_type ASC
+                """
+            )
+            exam_breakdown = [{"examType": row[0], "total": row[1]} for row in cur.fetchall()]
+
+            cur.execute(
+                """
+                WITH days AS (
+                    SELECT generate_series(current_date - interval '6 days', current_date, interval '1 day')::date AS day
+                )
+                SELECT days.day, count(question_chunks.id) AS total
+                FROM days
+                LEFT JOIN question_chunks ON question_chunks.created_at::date = days.day
+                GROUP BY days.day
+                ORDER BY days.day ASC
+                """
+            )
+            weekly_ingest = [{"date": row[0].strftime("%d %b"), "items": row[1]} for row in cur.fetchall()]
+
+            cur.execute(
+                """
+                SELECT label, detail, created_at
+                FROM (
+                    SELECT
+                        'Accepted question submission' AS label,
+                        upper((validation->>'exam_type')) || ' ' || initcap(validation->>'subject') AS detail,
+                        created_at
+                    FROM question_submissions
+                    WHERE status = 'accepted'
+                    UNION ALL
+                    SELECT
+                        'Rejected question submission' AS label,
+                        COALESCE(rejection_reason, 'Validation rejected') AS detail,
+                        created_at
+                    FROM question_submissions
+                    WHERE status = 'rejected'
+                    UNION ALL
+                    SELECT
+                        'Question indexed' AS label,
+                        upper(exam_type) || ' ' || initcap(subject) || COALESCE(' - ' || chapter, '') AS detail,
+                        created_at
+                    FROM question_chunks
+                ) activity
+                ORDER BY created_at DESC
+                LIMIT 8
+                """
+            )
+            recent_activity = [
+                {
+                    "action": row[0],
+                    "detail": row[1],
+                    "time": row[2].isoformat(),
+                }
+                for row in cur.fetchall()
+            ]
+
+    return {
+        "questionCount": question_count,
+        "acceptedSubmissionCount": accepted_submission_count,
+        "rejectedSubmissionCount": rejected_submission_count,
+        "contributorCount": contributor_count,
+        "subjectBreakdown": subject_breakdown,
+        "examBreakdown": exam_breakdown,
+        "weeklyIngest": weekly_ingest,
+        "recentActivity": recent_activity,
+    }

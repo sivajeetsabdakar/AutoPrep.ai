@@ -1,193 +1,273 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Navbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MessageCircle, Upload, Bot } from "lucide-react"
+import { Bot, BookOpen, RotateCcw, Send, SlidersHorizontal, Sparkles, User } from "lucide-react"
+
+const STORAGE_KEY = "autoprep.studybuddy.messages"
+
+const STARTER_MESSAGE = {
+  id: "welcome",
+  role: "assistant",
+  content: "Ask me a JEE or NEET doubt. I can use your previous messages plus the RAG question bank to explain concepts and suggest practice.",
+  sources: [],
+}
 
 export default function StudyBuddy() {
-  const [doubt, setDoubt] = useState("")
-  const [response, setResponse] = useState("")
-  const [sources, setSources] = useState([])
-  const [examType, setExamType] = useState("")
-  const [subject, setSubject] = useState("")
-  const [isUploading, setIsUploading] = useState(false)
+  const [input, setInput] = useState("")
+  const [messages, setMessages] = useState([STARTER_MESSAGE])
+  const [examType, setExamType] = useState("all")
+  const [subject, setSubject] = useState("all")
   const [isLoading, setIsLoading] = useState(false)
+  const scrollRef = useRef(null)
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(STORAGE_KEY)
+    if (!saved) return
+
+    try {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length) {
+        setMessages(parsed)
+      }
+    } catch {
+      window.localStorage.removeItem(STORAGE_KEY)
+    }
+  }, [])
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(messages))
+    scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+  }, [messages])
+
+  const recentMessages = useMemo(
+    () =>
+      messages
+        .filter((message) => message.role === "user" || message.role === "assistant")
+        .filter((message) => message.id !== "welcome")
+        .slice(-10)
+        .map(({ role, content }) => ({ role, content })),
+    [messages],
+  )
 
   const handleSubmit = async () => {
+    const doubt = input.trim()
+    if (!doubt || isLoading) return
+
+    const userMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: doubt,
+      sources: [],
+    }
+    setMessages((current) => [...current, userMessage])
+    setInput("")
     setIsLoading(true)
-    setResponse("") // Clear previous response
+
     try {
       const formData = new FormData()
       formData.append("doubt", doubt)
-      if (examType) formData.append("examType", examType)
-      if (subject) formData.append("subject", subject)
-  
+      formData.append("messages", JSON.stringify(recentMessages))
+      if (examType !== "all") formData.append("examType", examType)
+      if (subject !== "all") formData.append("subject", subject)
+
       const res = await fetch("/api/studybuddy", {
         method: "POST",
         body: formData,
       })
-  
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`)
-      }
-  
+
       const data = await res.json()
-      if (data?.reply) {
-        setResponse(data.reply)
-        setSources(data.sources || [])
-      } else {
-        setResponse(data?.error || "No response received from the API.")
-        setSources([])
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP error ${res.status}`)
       }
+
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: data.reply || "I could not generate a response.",
+          sources: data.sources || [],
+        },
+      ])
     } catch (error) {
       console.error("Error submitting doubt:", error)
-      setResponse("An error occurred. Please try again.")
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "I could not reach StudyBuddy right now. Please try again in a moment.",
+          sources: [],
+        },
+      ])
     } finally {
       setIsLoading(false)
     }
   }
-  
+
+  const resetChat = () => {
+    setMessages([STARTER_MESSAGE])
+    window.localStorage.removeItem(STORAGE_KEY)
+  }
 
   return (
     <main className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="p-8">
-        <div className="max-w-3xl mx-auto space-y-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Bot className="mr-2 h-6 w-6 text-accent" />
-                Ask StudyBuddy
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <Textarea
-                placeholder="Type your doubt here..."
-                value={doubt}
-                onChange={(e) => setDoubt(e.target.value)}
-                className="min-h-[150px]"
-              />
+      <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-5xl flex-col px-4">
+        <header className="flex items-center justify-between border-b py-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Bot className="h-5 w-5 text-accent" />
+              <h1 className="text-xl font-semibold">StudyBuddy</h1>
+            </div>
+            <p className="text-sm text-muted-foreground">RAG-powered tutor with memory for this chat</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={resetChat} title="Reset chat">
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+        </header>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Select onValueChange={(value) => {
-                  setExamType(value)
-                  setSubject("")
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Exam filter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="jee">JEE</SelectItem>
-                    <SelectItem value="neet">NEET</SelectItem>
-                  </SelectContent>
-                </Select>
+        <section className="flex-1 overflow-y-auto py-6">
+          <div className="mx-auto max-w-3xl space-y-6">
+            {messages.map((message) => (
+              <ChatMessage key={message.id} message={message} />
+            ))}
+            {isLoading && (
+              <div className="flex gap-3">
+                <Avatar role="assistant" />
+                <div className="rounded-lg border bg-muted px-4 py-3 text-sm text-muted-foreground">
+                  Thinking with RAG context...
+                </div>
+              </div>
+            )}
+            <div ref={scrollRef} />
+          </div>
+        </section>
 
-                <Select value={subject} onValueChange={setSubject} disabled={!examType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Subject filter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="physics">Physics</SelectItem>
-                    <SelectItem value="chemistry">Chemistry</SelectItem>
-                    {examType === "jee" && <SelectItem value="mathematics">Mathematics</SelectItem>}
-                    {examType === "neet" && <SelectItem value="biology">Biology</SelectItem>}
-                  </SelectContent>
-                </Select>
+        <footer className="border-t bg-background py-4">
+          <div className="mx-auto max-w-3xl space-y-3">
+            <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 shadow-sm">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground sm:w-28">
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Filters
+                </div>
+                <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Select
+                    value={examType}
+                    onValueChange={(value) => {
+                      setExamType(value)
+                      setSubject("all")
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Exam" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All exams</SelectItem>
+                      <SelectItem value="jee">JEE</SelectItem>
+                      <SelectItem value="neet">NEET</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={subject} onValueChange={setSubject} disabled={examType === "all"}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Subject" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All subjects</SelectItem>
+                      <SelectItem value="physics">Physics</SelectItem>
+                      <SelectItem value="chemistry">Chemistry</SelectItem>
+                      {examType === "jee" && <SelectItem value="mathematics">Mathematics</SelectItem>}
+                      {examType === "neet" && <SelectItem value="biology">Biology</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="border-2 border-dashed rounded-lg p-4">
-                  <div className="flex items-center justify-center space-x-2">
-                    <Upload className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      Attach a document (optional)
-                    </span>
-                    <input
-                      type="file"
-                      className="hidden"
-                      id="document-upload"
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                      onChange={() => setIsUploading(true)}
-                    />
-                    <Button variant="outline" asChild>
-                      <label htmlFor="document-upload" className="cursor-pointer">
-                        Choose File
-                      </label>
-                    </Button>
-                  </div>
-                </div>
-
-                <Button
-                  className="w-full bg-accent hover:bg-accent-dark"
-                  onClick={handleSubmit}
-                  disabled={!doubt.trim() || isLoading}
-                >
-                  {isLoading ? "Submitting..." : (
-                    <>
-                      <MessageCircle className="mr-2 h-4 w-4" />
-                      Submit Doubt
-                    </>
-                  )}
+              <div className="flex items-end gap-2">
+                <Textarea
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault()
+                      handleSubmit()
+                    }
+                  }}
+                  placeholder="Ask a doubt, paste a question, or continue the previous explanation..."
+                  className="max-h-44 min-h-16 resize-none border-0 px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                <Button size="icon" onClick={handleSubmit} disabled={!input.trim() || isLoading} title="Send">
+                  <Send className="h-4 w-4" />
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Chat Response */}
-          {response && (
-            <Card>
-              <CardHeader>
-                <CardTitle>StudyBuddy's Response</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-muted-foreground whitespace-pre-line">{response}</p>
-                {sources.length > 0 && (
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium">Retrieved Sources</p>
-                    {sources.slice(0, 3).map((source, index) => (
-                      <div key={source.id || index} className="rounded-md border p-3 text-sm">
-                        <p className="font-medium">
-                          {source.examType?.toUpperCase()} {source.subject}
-                          {source.chapter ? ` - ${source.chapter}` : ""}
-                        </p>
-                        {source.text && <p className="text-muted-foreground mt-1">{source.text}</p>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Chat History */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Previous Conversations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Example conversation */}
-                <div className="flex space-x-3">
-                  <div className="flex-shrink-0">
-                    <Bot className="h-6 w-6 text-accent" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">StudyBuddy</p>
-                    <p className="text-muted-foreground">
-                      Hello! How can I help you with your studies today?
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+            <p className="text-center text-xs text-muted-foreground">
+              StudyBuddy can make mistakes. Verify important formulas and exam notices.
+            </p>
+          </div>
+        </footer>
       </div>
     </main>
+  )
+}
+
+function ChatMessage({ message }) {
+  const isUser = message.role === "user"
+
+  return (
+    <article className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
+      {!isUser && <Avatar role="assistant" />}
+      <div className={`max-w-[85%] space-y-3 ${isUser ? "items-end" : "items-start"}`}>
+        <div
+          className={
+            isUser
+              ? "rounded-lg bg-primary px-4 py-3 text-sm leading-6 text-primary-foreground"
+              : "rounded-lg border bg-card px-4 py-3 text-sm leading-6 text-card-foreground"
+          }
+        >
+          <p className="whitespace-pre-wrap">{message.content}</p>
+        </div>
+        {!isUser && message.sources?.length > 0 && <Sources sources={message.sources} />}
+      </div>
+      {isUser && <Avatar role="user" />}
+    </article>
+  )
+}
+
+function Avatar({ role }) {
+  const Icon = role === "user" ? User : Sparkles
+  return (
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-muted">
+      <Icon className="h-4 w-4 text-muted-foreground" />
+    </div>
+  )
+}
+
+function Sources({ sources }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <BookOpen className="h-4 w-4" />
+        Retrieved from question bank
+      </div>
+      <div className="grid gap-2">
+        {sources.slice(0, 3).map((source, index) => (
+          <div key={source.id || index} className="rounded-md border bg-muted/40 p-3 text-xs">
+            <p className="font-medium">
+              {source.examType?.toUpperCase()} {source.subject}
+              {source.chapter ? ` - ${source.chapter}` : ""}
+            </p>
+            {source.text && <p className="mt-1 line-clamp-3 text-muted-foreground">{source.text}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

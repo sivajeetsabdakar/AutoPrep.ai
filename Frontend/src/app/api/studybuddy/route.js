@@ -6,6 +6,7 @@ export async function POST(req) {
     const doubt = formData.get("doubt");
     const examType = formData.get("examType");
     const subject = formData.get("subject");
+    const messagesRaw = formData.get("messages");
 
     if (!doubt) {
       return NextResponse.json({ error: "No doubt provided." }, { status: 400 });
@@ -16,10 +17,19 @@ export async function POST(req) {
       return NextResponse.json({ error: "Backend URL is not configured" }, { status: 500 });
     }
 
+    let messages = [];
+    if (messagesRaw) {
+      try {
+        messages = JSON.parse(messagesRaw);
+      } catch {
+        messages = [];
+      }
+    }
+
     const response = await fetch(`${backendUrl}/rag/studybuddy`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ doubt, examType, subject }),
+      body: JSON.stringify({ doubt, examType, subject, messages }),
     });
 
     const data = await response.json();

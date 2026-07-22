@@ -6,6 +6,7 @@ from basetoimage import main as extract_image_text
 
 from .service import RagService
 from .config import get_config
+from .database import get_dashboard_metrics
 from .submissions import SubmissionError, submit_question
 
 rag_bp = Blueprint("rag", __name__, url_prefix="/rag")
@@ -69,6 +70,7 @@ def studybuddy():
         doubt=doubt,
         exam_type=data.get("examType"),
         subject=data.get("subject"),
+        history=data.get("messages") or data.get("history") or [],
     )
     return jsonify({"status": "success", **result})
 
@@ -87,6 +89,11 @@ def search():
         limit=_limit(data.get("topK"), default=8),
     )
     return jsonify({"status": "success", "results": questions})
+
+
+@rag_bp.get("/dashboard-metrics")
+def dashboard_metrics():
+    return jsonify({"status": "success", "metrics": get_dashboard_metrics(get_config())})
 
 
 @rag_bp.post("/submit-question")
