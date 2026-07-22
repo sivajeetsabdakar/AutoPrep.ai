@@ -6,7 +6,7 @@ AutoPrep.ai is an advanced educational platform designed to enrich the preparati
 
 ## Deployed URLs
 
-- Frontend: https://autoprep-ai.vercel.app/
+- Frontend: https://autoprep-ai-theta.vercel.app/
 - Backend API: configure with `NEXT_PUBLIC_BACKEND_URL` in `Frontend/.env.local`
 
 ## Features
@@ -192,7 +192,7 @@ Frontend deployment uses Vercel. Set these environment variables in the Vercel p
 
 ```env
 NEXT_PUBLIC_BACKEND_URL=https://your-backend-api-url
-NEXTAUTH_URL=https://your-vercel-domain.vercel.app
+NEXTAUTH_URL=https://autoprep-ai-theta.vercel.app
 NEXTAUTH_SECRET=replace_with_a_long_random_secret
 GOOGLE_CLIENT_ID=your_google_oauth_client_id
 GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
