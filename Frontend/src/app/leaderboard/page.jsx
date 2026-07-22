@@ -89,7 +89,7 @@ export default function Leaderboard() {
               <Trophy className="mb-4 h-10 w-10 text-muted-foreground" />
               <h2 className="text-xl font-semibold">No real submissions yet</h2>
               <p className="mt-2 max-w-md text-muted-foreground">
-                Once signed-in users submit JEE or NEET questions that pass Gemini validation, contributors will appear here.
+                Once signed-in users submit JEE or NEET questions that pass AI validation, contributors will appear here.
               </p>
             </CardContent>
           </Card>

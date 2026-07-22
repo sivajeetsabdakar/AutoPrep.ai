@@ -1,8 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Navbar } from "@/components/navbar"
-import { BookOpen, Brain, Target, Upload } from "lucide-react"
-import Image from "next/image"
+import { Brain, Database, Search, ShieldCheck, Target, Upload } from "lucide-react"
 import Link from "next/link"
 
 export default function Home() {
@@ -61,42 +60,26 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-12 sm:py-16 bg-muted">
-        <div className="container mx-auto px-4">
-          <div className="grid gap-8 grid-cols-2 md:grid-cols-4 text-center">
-            <StatCard number="50K+" label="Active Students" />
-            <StatCard number="1M+" label="Questions Generated" />
-            <StatCard number="95%" label="Success Rate" />
-            <StatCard number="4.9" label="Average Rating" />
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section className="py-16 sm:py-20 bg-background">
+      <section className="py-16 sm:py-20 bg-muted">
         <div className="container mx-auto px-4">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-12">
-            Student Success Stories
+            Built Around Real Practice Data
           </h2>
           <div className="grid gap-8 grid-cols-1 md:grid-cols-3">
-            <TestimonialCard
-              image="https://images.unsplash.com/photo-1494790108377-be9c29b29330"
-              name="Priya Sharma"
-              text="AutoPrep.ai helped me improve my JEE score by 35%. The personalized questions were exactly what I needed!"
-              rating={5}
+            <FeatureCard
+              icon={<Database className="h-12 w-12 text-accent" />}
+              title="Indexed Question Bank"
+              description="Practice is retrieved from the stored JEE/NEET question index instead of demo cards."
             />
-            <TestimonialCard
-              image="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d"
-              name="Rahul Patel"
-              text="The daily problems keep me motivated. I've maintained a 30-day streak and seen significant improvement!"
-              rating={5}
+            <FeatureCard
+              icon={<Search className="h-12 w-12 text-accent" />}
+              title="RAG Search"
+              description="StudyBuddy and generated practice use semantic retrieval to find relevant question context."
             />
-            <TestimonialCard
-              image="https://images.unsplash.com/photo-1438761681033-6461ffad8d80"
-              name="Anjali Kumar"
-              text="The AI-generated questions are incredibly helpful. It's like having a personal tutor available 24/7."
-              rating={4}
+            <FeatureCard
+              icon={<ShieldCheck className="h-12 w-12 text-accent" />}
+              title="Validated Contributions"
+              description="Signed-in users can submit question images that are validated before entering the RAG index."
             />
           </div>
         </div>
@@ -114,46 +97,6 @@ function FeatureCard({ icon, title, description }) {
       </CardHeader>
       <CardContent>
         <p className="text-muted-foreground">{description}</p>
-      </CardContent>
-    </Card>
-  )
-}
-
-function TestimonialCard({ image, name, text, rating }) {
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center mb-4">
-          <Image
-            src={image}
-            alt={name}
-            width={64}
-            height={64}
-            className="rounded-full object-cover aspect-square"
-          />
-          <div className="ml-4">
-            <h4 className="font-semibold">{name}</h4>
-            <div className="flex text-yellow-400">
-              {Array(rating)
-                .fill("★")
-                .map((star, i) => (
-                  <span key={i}>{star}</span>
-                ))}
-            </div>
-          </div>
-        </div>
-        <p className="text-muted-foreground">{text}</p>
-      </CardContent>
-    </Card>
-  )
-}
-
-function StatCard({ number, label }) {
-  return (
-    <Card>
-      <CardContent className="p-6">
-        <p className="text-3xl font-bold text-accent mb-2">{number}</p>
-        <p className="text-muted-foreground">{label}</p>
       </CardContent>
     </Card>
   )

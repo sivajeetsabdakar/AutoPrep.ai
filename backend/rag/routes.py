@@ -6,7 +6,7 @@ from basetoimage import main as extract_image_text
 
 from .service import RagService
 from .config import get_config
-from .database import get_dashboard_metrics, get_leaderboard
+from .database import get_dashboard_metrics, get_leaderboard, get_problem_of_the_day
 from .submissions import SubmissionError, submit_question
 
 rag_bp = Blueprint("rag", __name__, url_prefix="/rag")
@@ -105,6 +105,19 @@ def leaderboard():
                 get_config(),
                 limit=_limit(request.args.get("limit"), default=25),
             ),
+        }
+    )
+
+
+@rag_bp.get("/problem-of-the-day")
+def problem_of_the_day():
+    exam_type = _clean(request.args.get("examType")) or "jee"
+    if exam_type not in {"jee", "neet"}:
+        return jsonify({"error": "examType must be either 'jee' or 'neet'."}), 400
+    return jsonify(
+        {
+            "status": "success",
+            "dailyProblems": get_problem_of_the_day(get_config(), exam_type),
         }
     )
 

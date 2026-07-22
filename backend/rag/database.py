@@ -430,3 +430,77 @@ def _leaderboard_badge(rank: int, accepted_count: int) -> str:
     if accepted_count > 0:
         return "Verified contributor"
     return "New contributor"
+
+
+def get_problem_of_the_day(config: RagConfig, exam_type: str) -> dict:
+    if not config.database_url:
+        return {"examType": exam_type, "problems": []}
+
+    subjects = {
+        "jee": ["physics", "chemistry", "mathematics"],
+        "neet": ["physics", "chemistry", "biology"],
+    }.get(exam_type, [])
+
+    if not subjects:
+        return {"examType": exam_type, "problems": []}
+
+    sql = """
+        WITH ranked AS (
+            SELECT
+                id,
+                exam_type,
+                subject,
+                chapter,
+                question_text,
+                answer,
+                image,
+                source,
+                row_number() OVER (
+                    PARTITION BY subject
+                    ORDER BY md5(COALESCE(external_id, id::text) || current_date::text)
+                ) AS daily_rank
+            FROM question_chunks
+            WHERE exam_type = %s
+              AND subject = ANY(%s)
+        )
+        SELECT
+            id,
+            exam_type,
+            subject,
+            chapter,
+            question_text,
+            answer,
+            image,
+            source
+        FROM ranked
+        WHERE daily_rank = 1
+    """
+
+    with get_connection(config) as conn:
+        if conn is None:
+            return {"examType": exam_type, "problems": []}
+        with conn.cursor() as cur:
+            cur.execute(sql, (exam_type, subjects))
+            columns = [desc.name for desc in cur.description]
+            rows = [dict(zip(columns, row)) for row in cur.fetchall()]
+
+    rows_by_subject = {row["subject"]: row for row in rows}
+    problems = []
+    for subject in subjects:
+        row = rows_by_subject.get(subject)
+        if not row:
+            continue
+        problems.append(
+            {
+                "id": row.get("id"),
+                "examType": row.get("exam_type"),
+                "subject": row.get("subject"),
+                "chapter": row.get("chapter"),
+                "text": row.get("question_text") or "",
+                "answer": row.get("answer") or "",
+                "image": row.get("image") or "",
+                "source": row.get("source"),
+            }
+        )
+
+    return {"examType": exam_type, "problems": problems}

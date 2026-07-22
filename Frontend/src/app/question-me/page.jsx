@@ -5,7 +5,7 @@ import { Navbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Lightbulb, Trophy } from "lucide-react"
+import { Trophy } from "lucide-react"
 
 export default function QuestionMe() {
   const [examType, setExamType] = useState("")
@@ -14,7 +14,6 @@ export default function QuestionMe() {
   const [solutions, setSolutions] = useState([])
   const [selectedAnswers, setSelectedAnswers] = useState({})
   const [submittedAnswers, setSubmittedAnswers] = useState({})
-  const [showHints, setShowHints] = useState({})
   const [showCorrectAnswers, setShowCorrectAnswers] = useState({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -45,10 +44,6 @@ export default function QuestionMe() {
 
   const handleSubmit = (index) => {
     setSubmittedAnswers(prev => ({ ...prev, [index]: selectedAnswers[index] }))
-  }
-
-  const toggleHint = (index) => {
-    setShowHints(prev => ({ ...prev, [index]: !prev[index] }))
   }
 
   const toggleShowAnswer = (index) => {
@@ -165,13 +160,6 @@ export default function QuestionMe() {
                           })
                         )}
 
-                        {/* Hint & Submit */}
-                        <div className="flex justify-between">
-                          <Button variant="outline" onClick={() => toggleHint(index)}>
-                            <Lightbulb className="mr-2 h-4 w-4" />
-                            {showHints[index] ? "Hide Hint" : "Show Hint"}
-                          </Button>
-                        </div>
                       </CardContent>
                     </Card>
                   ))}

@@ -1,167 +1,160 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Navbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Textarea } from "@/components/ui/textarea"
-import { Brain, MessageCircle, Trophy, Users } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { BookOpen, CheckCircle2, RefreshCcw, Target, XCircle } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Label } from "@/components/ui/label"
 
 export default function ProblemOfDay() {
-  const [showHint, setShowHint] = useState(false)
-  const [answer, setAnswer] = useState("")
+  const [examType, setExamType] = useState("jee")
+  const [problems, setProblems] = useState([])
+  const [selectedAnswers, setSelectedAnswers] = useState({})
+  const [submittedAnswers, setSubmittedAnswers] = useState({})
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
 
-  const problems = {
-    physics: {
-      question: "A particle is confined to a one-dimensional box of length L. If the particle is in its ground state, calculate the probability of finding it in the middle third of the box.",
-      hint: "1. Recall that the ground state wavefunction is ψ(x) = √(2/L) sin(πx/L)\n2. The probability is given by ∫|ψ(x)|²dx over the region\n3. Set up the integral from L/3 to 2L/3"
-    },
-    chemistry: {
-      question: "Predict the major product formed when propene reacts with HBr in the presence of organic peroxide.",
-      hint: "1. This is an anti-Markovnikov addition\n2. Consider the radical mechanism\n3. Think about the stability of the intermediate radical"
-    },
-    mathematics: {
-      question: "Find the volume of the solid obtained by rotating the region bounded by y = x², y = 2x, and the y-axis about the x-axis.",
-      hint: "1. Identify the points of intersection\n2. Set up the washer method integral\n3. Use π(R² - r²) for each cross-section"
-    },
-    biology: {
-      question: "Explain the role of calcium ions in the process of muscle contraction, specifically focusing on the interaction between actin and myosin.",
-      hint: "1. Consider the role of troponin and tropomyosin\n2. Think about the sarcoplasmic reticulum\n3. Remember the sliding filament theory"
+  useEffect(() => {
+    let mounted = true
+
+    async function loadProblems() {
+      setIsLoading(true)
+      setError("")
+      setSelectedAnswers({})
+      setSubmittedAnswers({})
+
+      try {
+        const response = await fetch(`/api/problem-of-the-day?examType=${examType}`, { cache: "no-store" })
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.error || "Could not load daily problems.")
+        }
+        if (mounted) {
+          setProblems(data.dailyProblems?.problems || [])
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(err.message || "Could not load daily problems.")
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false)
+        }
+      }
     }
-  }
+
+    loadProblems()
+    return () => {
+      mounted = false
+    }
+  }, [examType])
+
+  const solvedCount = useMemo(
+    () =>
+      problems.filter((problem) => {
+        const answer = normalizeAnswer(problem.answer)
+        return answersMatch(submittedAnswers[problem.id], answer.value)
+      }).length,
+    [problems, submittedAnswers],
+  )
+
+  const activeTab = problems[0]?.subject || ""
 
   return (
     <main className="min-h-screen bg-background">
       <Navbar />
-      
-      <div className="py-8 px-4 md:px-8 lg:px-16">
-        <div className="grid lg:grid-cols-4 gap-8">
-          {/* Main Problem Section */}
-          <div className="lg:col-span-2 space-y-8">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Problem of the Day</CardTitle>
-                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <Trophy className="h-4 w-4" />
-                    <span>500 points</span>
-                  </div>
+
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-accent">
+              <Target className="h-4 w-4" />
+              Daily RAG practice
+            </div>
+            <h1 className="text-3xl font-bold tracking-normal md:text-4xl">Problem of the Day</h1>
+            <p className="mt-2 max-w-2xl text-muted-foreground">
+              A fresh set of real questions selected from the indexed JEE/NEET question bank.
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <Button variant={examType === "jee" ? "default" : "outline"} onClick={() => setExamType("jee")}>
+              JEE
+            </Button>
+            <Button variant={examType === "neet" ? "default" : "outline"} onClick={() => setExamType("neet")}>
+              NEET
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-accent" />
+                Today's Questions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex h-72 items-center justify-center text-muted-foreground">Loading daily questions...</div>
+              ) : error ? (
+                <div className="flex h-72 items-center justify-center text-center text-red-500">{error}</div>
+              ) : problems.length === 0 ? (
+                <div className="flex h-72 items-center justify-center text-center text-muted-foreground">
+                  No indexed questions found for this exam yet.
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <Tabs defaultValue="physics">
-                  <TabsList className="grid grid-cols-4 w-full">
-                    <TabsTrigger value="physics">Physics</TabsTrigger>
-                    <TabsTrigger value="chemistry">Chemistry</TabsTrigger>
-                    <TabsTrigger value="mathematics">Mathematics</TabsTrigger>
-                    <TabsTrigger value="biology">Biology</TabsTrigger>
+              ) : (
+                <Tabs defaultValue={activeTab} className="space-y-5">
+                  <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${problems.length}, minmax(0, 1fr))` }}>
+                    {problems.map((problem) => (
+                      <TabsTrigger key={problem.id} value={problem.subject} className="capitalize">
+                        {problem.subject}
+                      </TabsTrigger>
+                    ))}
                   </TabsList>
 
-                  {Object.entries(problems).map(([subject, problem]) => (
-                    <TabsContent key={subject} value={subject} className="space-y-4">
-                      <div className="space-y-4">
-                        <h3 className="font-semibold">{subject.charAt(0).toUpperCase() + subject.slice(1)} Problem</h3>
-                        <p>{problem.question}</p>
-                        
-                        {showHint && (
-                          <Card className="bg-muted">
-                            <CardContent className="p-4">
-                              <p className="text-sm whitespace-pre-line">{problem.hint}</p>
-                            </CardContent>
-                          </Card>
-                        )}
-
-                        <div className="space-y-4">
-                          <Textarea
-                            placeholder="Type your answer here..."
-                            value={answer}
-                            onChange={(e) => setAnswer(e.target.value)}
-                            className="min-h-[100px]"
-                          />
-                          <div className="flex space-x-4">
-                            <Button onClick={() => setShowHint(!showHint)} variant="outline">
-                              <Brain className="mr-2 h-4 w-4" />
-                              {showHint ? "Hide Hint" : "Show Hint"}
-                            </Button>
-                            <Button variant="outline" className="bg-accent">Submit Answer</Button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span>Success Rate</span>
-                          <span className="text-muted-foreground">65%</span>
-                        </div>
-                        <Progress value={65} className="h-2" />
-                      </div>
+                  {problems.map((problem) => (
+                    <TabsContent key={problem.id} value={problem.subject}>
+                      <DailyProblem
+                        problem={problem}
+                        selectedAnswer={selectedAnswers[problem.id] || ""}
+                        submittedAnswer={submittedAnswers[problem.id] || ""}
+                        onSelect={(value) => setSelectedAnswers((current) => ({ ...current, [problem.id]: value }))}
+                        onSubmit={(value) => setSubmittedAnswers((current) => ({ ...current, [problem.id]: value }))}
+                      />
                     </TabsContent>
                   ))}
                 </Tabs>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+            </CardContent>
+          </Card>
 
-          {/* Sidebar */}
-          <div className="md:col-span-2 grid grid-cols-2 gap-5">
-            {/* Streak Card */}
-            <Card className="col-span-2 md:col-span-1">
+          <div className="space-y-6">
+            <Card>
               <CardHeader>
-                <CardTitle>Your Streak</CardTitle>
+                <CardTitle>Daily Progress</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center">
-                  <p className="text-4xl font-bold text-secondary">🔥 7</p>
-                  <p className="text-sm text-muted-foreground mt-2">Days</p>
-                </div>
+                <p className="text-4xl font-bold text-accent">
+                  {solvedCount}/{problems.length || 0}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">Correct answers in this browser session.</p>
               </CardContent>
             </Card>
 
-            {/* Leaderboard Card */}
-            <Card className="col-span-2 md:col-span-1">
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Trophy className="mr-2 h-5 w-5" />
-                  Today's Leaders
+                <CardTitle className="flex items-center gap-2">
+                  <RefreshCcw className="h-5 w-5 text-accent" />
+                  Source
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { name: "Rahul M.", points: 500, position: 1 },
-                    { name: "Priya S.", points: 450, position: 2 },
-                    { name: "Amit K.", points: 400, position: 3 },
-                  ].map((user) => (
-                    <div key={user.position} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium">{user.position}.</span>
-                        <span>{user.name}</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">{user.points} pts</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Discussion Section */}
-            <Card className="col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <MessageCircle className="mr-2 h-5 w-5" />
-                  Discussion
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  placeholder="Share your thoughts or ask for help..."
-                  className="mb-4"
-                />
-                <Button className="bg-accent hover:bg-accent-dark" >Post Comment</Button>
+              <CardContent className="space-y-2 text-sm text-muted-foreground">
+                <p>Questions are selected from Neon `question_chunks` using a daily rotation.</p>
+                <p>They refresh automatically when the calendar day changes on the backend.</p>
               </CardContent>
             </Card>
           </div>
@@ -169,4 +162,133 @@ export default function ProblemOfDay() {
       </div>
     </main>
   )
+}
+
+function DailyProblem({ problem, selectedAnswer, submittedAnswer, onSelect, onSubmit }) {
+  const answer = normalizeAnswer(problem.answer)
+  const options = extractOptions(problem.text)
+  const questionText = options.length >= 2 ? stripOptions(problem.text) : problem.text
+  const hasSubmitted = Boolean(submittedAnswer)
+  const isCorrect = hasSubmitted && answersMatch(submittedAnswer, answer.value)
+  const isIntegerAnswer = answer.kind === "integer"
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <p className="text-sm font-medium capitalize text-accent">
+          {problem.examType?.toUpperCase()} {problem.subject}
+          {problem.chapter ? ` - ${problem.chapter}` : ""}
+        </p>
+        <p className="whitespace-pre-line leading-7">{questionText || "Question image available"}</p>
+      </div>
+
+      {problem.image && <img src={problem.image} alt="Daily problem" className="max-h-[420px] w-full rounded-md border object-contain" />}
+
+      {options.length >= 2 ? (
+        <div className="grid gap-2">
+          {options.map((option) => {
+            const selected = submittedAnswer === option.value
+            const correct = answersMatch(option.value, answer.value)
+            return (
+              <Button
+                key={option.value}
+                variant="outline"
+                onClick={() => onSubmit(option.value)}
+                className={`h-auto justify-start whitespace-normal text-left ${
+                  selected && correct
+                    ? "border-green-500 bg-green-500/10 text-green-700"
+                    : selected
+                      ? "border-red-500 bg-red-500/10 text-red-700"
+                      : ""
+                }`}
+              >
+                <span className="mr-2 font-bold">({option.value})</span>
+                <span>{option.label}</span>
+              </Button>
+            )
+          })}
+        </div>
+      ) : isIntegerAnswer ? (
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Input value={selectedAnswer} onChange={(event) => onSelect(event.target.value)} placeholder="Enter your answer" />
+          <Button onClick={() => onSubmit(selectedAnswer)} disabled={!selectedAnswer.trim()}>
+            Check Answer
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {["1", "2", "3", "4"].map((option) => {
+            const selected = submittedAnswer === option
+            const correct = answersMatch(option, answer.value)
+            return (
+              <Button
+                key={option}
+                variant="outline"
+                onClick={() => onSubmit(option)}
+                className={
+                  selected && correct
+                    ? "border-green-500 bg-green-500/10 text-green-700"
+                    : selected
+                      ? "border-red-500 bg-red-500/10 text-red-700"
+                      : ""
+                }
+              >
+                ({option})
+              </Button>
+            )
+          })}
+        </div>
+      )}
+
+      {hasSubmitted && (
+        <div className={`flex items-start gap-2 rounded-md border p-4 ${isCorrect ? "border-green-500/40 bg-green-500/10 text-green-700" : "border-red-500/40 bg-red-500/10 text-red-700"}`}>
+          {isCorrect ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /> : <XCircle className="mt-0.5 h-5 w-5 shrink-0" />}
+          <div>
+            <p className="font-medium">{isCorrect ? "Correct" : "Wrong"}</p>
+            {!isCorrect && <p className="mt-1 text-sm">Correct answer: {answer.display}</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function normalizeAnswer(rawAnswer = "") {
+  const raw = String(rawAnswer).trim()
+  if (!raw) return { kind: "missing", value: "", display: "" }
+  if (/^i/i.test(raw)) {
+    const value = raw.slice(1).trim()
+    return { kind: "integer", value: cleanAnswerValue(value), display: value }
+  }
+  const optionMatch = raw.match(/[1-4]/)
+  const value = optionMatch ? optionMatch[0] : raw
+  return { kind: "mcq", value: cleanAnswerValue(value), display: value }
+}
+
+function cleanAnswerValue(value = "") {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/^option\s+/i, "")
+    .replace(/^\(|\)$/g, "")
+}
+
+function answersMatch(given, correct) {
+  return cleanAnswerValue(given) === cleanAnswerValue(correct)
+}
+
+function extractOptions(text = "") {
+  const matches = [...String(text).matchAll(/(?:^|\s)\(([1-4])\)\s*([\s\S]*?)(?=\s+\([1-4]\)\s*|$)/g)]
+  return matches
+    .map((match) => ({
+      value: match[1],
+      label: match[2].replace(/\s+/g, " ").trim(),
+    }))
+    .filter((option) => option.label)
+}
+
+function stripOptions(text = "") {
+  const firstOption = String(text).search(/(?:^|\s)\([1-4]\)\s*/)
+  if (firstOption === -1) return text
+  return text.slice(0, firstOption).trim()
 }

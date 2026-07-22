@@ -160,7 +160,7 @@ export default function SubmitQuestion() {
                 disabled={!file || isSubmitting}
                 onClick={handleSubmit}
               >
-                {isSubmitting ? "Validating with Gemini..." : "Submit for Validation"}
+                {isSubmitting ? "Validating with AI..." : "Submit for Validation"}
               </Button>
 
               {error && <p className="text-sm text-red-500">{error}</p>}
@@ -173,7 +173,7 @@ export default function SubmitQuestion() {
             </CardHeader>
             <CardContent className="space-y-4">
               {!result ? (
-                <p className="text-muted-foreground">Gemini will extract the exam, subject, question text, and answer before storing it.</p>
+                <p className="text-muted-foreground">AI validation will extract the exam, subject, question text, and answer before storing it.</p>
               ) : result.accepted ? (
                 <StatusBlock accepted result={result} />
               ) : (
