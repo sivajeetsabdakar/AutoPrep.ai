@@ -129,11 +129,13 @@ def find_duplicate_question(config: RagConfig, embedding: list[float], exam_type
     return results[0] if results else None
 
 
-def record_question_submission(config: RagConfig, user: dict, submission: dict) -> dict:
+def upsert_user(config: RagConfig, user: dict) -> int:
     if not config.database_url:
-        raise RuntimeError("DATABASE_URL or NEON_DATABASE_URL is required for submissions.")
+        raise RuntimeError("DATABASE_URL or NEON_DATABASE_URL is required.")
+    if not user.get("email"):
+        raise ValueError("user.email is required.")
 
-    upsert_user_sql = """
+    sql = """
         INSERT INTO users (provider, provider_user_id, email, name, image)
         VALUES (%s, %s, %s, %s, %s)
         ON CONFLICT (email) DO UPDATE SET
@@ -143,6 +145,30 @@ def record_question_submission(config: RagConfig, user: dict, submission: dict) 
             updated_at = now()
         RETURNING id
     """
+
+    with get_connection(config) as conn:
+        if conn is None:
+            raise RuntimeError("Database connection is not configured.")
+        with conn.cursor() as cur:
+            cur.execute(
+                sql,
+                (
+                    user.get("provider") or "google",
+                    user.get("id"),
+                    user["email"],
+                    user.get("name"),
+                    user.get("image"),
+                ),
+            )
+            user_id = cur.fetchone()[0]
+        conn.commit()
+    return user_id
+
+
+def record_question_submission(config: RagConfig, user: dict, submission: dict) -> dict:
+    if not config.database_url:
+        raise RuntimeError("DATABASE_URL or NEON_DATABASE_URL is required for submissions.")
+
     insert_submission_sql = """
         INSERT INTO question_submissions (
             user_id,
@@ -189,17 +215,7 @@ def record_question_submission(config: RagConfig, user: dict, submission: dict) 
         if conn is None:
             raise RuntimeError("Database connection is not configured.")
         with conn.cursor() as cur:
-            cur.execute(
-                upsert_user_sql,
-                (
-                    user.get("provider") or "google",
-                    user.get("id"),
-                    user["email"],
-                    user.get("name"),
-                    user.get("image"),
-                ),
-            )
-            user_id = cur.fetchone()[0]
+            user_id = upsert_user(config, user)
             cur.execute(
                 insert_submission_sql,
                 (
@@ -504,3 +520,304 @@ def get_problem_of_the_day(config: RagConfig, exam_type: str) -> dict:
         )
 
     return {"examType": exam_type, "problems": problems}
+
+
+def record_question_attempt(config: RagConfig, user: dict, attempt: dict) -> dict:
+    if not config.database_url:
+        raise RuntimeError("DATABASE_URL or NEON_DATABASE_URL is required for attempts.")
+
+    question_chunk_id = attempt.get("questionChunkId") or attempt.get("question_chunk_id")
+    if not question_chunk_id:
+        raise ValueError("questionChunkId is required.")
+    if not attempt.get("selectedAnswer"):
+        raise ValueError("selectedAnswer is required.")
+
+    user_id = upsert_user(config, user)
+    context = (attempt.get("context") or "practice").strip() or "practice"
+
+    fetch_question_sql = """
+        SELECT id, exam_type, subject, chapter, answer
+        FROM question_chunks
+        WHERE id = %s
+    """
+    insert_attempt_sql = """
+        INSERT INTO question_attempts (
+            user_id,
+            question_chunk_id,
+            context,
+            exam_type,
+            subject,
+            chapter,
+            selected_answer,
+            correct_answer,
+            is_correct
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (user_id, question_chunk_id, context) DO UPDATE SET
+            selected_answer = EXCLUDED.selected_answer,
+            correct_answer = EXCLUDED.correct_answer,
+            is_correct = EXCLUDED.is_correct,
+            updated_at = now()
+        RETURNING id, created_at, updated_at
+    """
+
+    with get_connection(config) as conn:
+        if conn is None:
+            raise RuntimeError("Database connection is not configured.")
+        with conn.cursor() as cur:
+            cur.execute(fetch_question_sql, (question_chunk_id,))
+            row = cur.fetchone()
+            if not row:
+                raise LookupError("Question was not found.")
+
+            _, exam_type, subject, chapter, correct_answer = row
+            selected_answer = str(attempt["selectedAnswer"]).strip()
+            normalized_selected = _normalize_answer(selected_answer)
+            normalized_correct = _normalize_answer(correct_answer or "")
+            is_correct = bool(normalized_correct and normalized_selected == normalized_correct)
+
+            cur.execute(
+                insert_attempt_sql,
+                (
+                    user_id,
+                    question_chunk_id,
+                    context,
+                    exam_type,
+                    subject,
+                    chapter,
+                    selected_answer,
+                    correct_answer,
+                    is_correct,
+                ),
+            )
+            attempt_id, created_at, updated_at = cur.fetchone()
+        conn.commit()
+
+    return {
+        "attemptId": attempt_id,
+        "userId": user_id,
+        "questionChunkId": int(question_chunk_id),
+        "context": context,
+        "examType": exam_type,
+        "subject": subject,
+        "chapter": chapter,
+        "selectedAnswer": selected_answer,
+        "correctAnswer": correct_answer or "",
+        "isCorrect": is_correct,
+        "createdAt": created_at.isoformat(),
+        "updatedAt": updated_at.isoformat(),
+    }
+
+
+def get_user_progress(config: RagConfig, user: dict) -> dict:
+    if not config.database_url:
+        return _empty_user_progress()
+    if not user.get("email"):
+        raise ValueError("user.email is required.")
+
+    user_id = upsert_user(config, user)
+
+    with get_connection(config) as conn:
+        if conn is None:
+            return _empty_user_progress()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    count(*) AS total_attempts,
+                    count(*) FILTER (WHERE is_correct) AS correct_attempts,
+                    count(DISTINCT question_chunk_id) AS solved_questions,
+                    max(updated_at) AS last_attempt_at
+                FROM question_attempts
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            total_attempts, correct_attempts, solved_questions, last_attempt_at = cur.fetchone()
+
+            cur.execute(
+                """
+                SELECT subject, count(*) AS attempts, count(*) FILTER (WHERE is_correct) AS correct
+                FROM question_attempts
+                WHERE user_id = %s
+                GROUP BY subject
+                ORDER BY attempts DESC, subject ASC
+                """,
+                (user_id,),
+            )
+            subject_breakdown = [
+                {
+                    "subject": row[0],
+                    "attempts": int(row[1] or 0),
+                    "correct": int(row[2] or 0),
+                    "accuracy": _percentage(row[2], row[1]),
+                }
+                for row in cur.fetchall()
+            ]
+
+            cur.execute(
+                """
+                SELECT context, count(*) AS attempts, count(*) FILTER (WHERE is_correct) AS correct
+                FROM question_attempts
+                WHERE user_id = %s
+                GROUP BY context
+                ORDER BY attempts DESC, context ASC
+                """,
+                (user_id,),
+            )
+            context_breakdown = [
+                {
+                    "context": row[0],
+                    "attempts": int(row[1] or 0),
+                    "correct": int(row[2] or 0),
+                    "accuracy": _percentage(row[2], row[1]),
+                }
+                for row in cur.fetchall()
+            ]
+
+            cur.execute(
+                """
+                WITH days AS (
+                    SELECT generate_series(current_date - interval '6 days', current_date, interval '1 day')::date AS day
+                )
+                SELECT
+                    days.day,
+                    count(question_attempts.id) AS attempts,
+                    count(question_attempts.id) FILTER (WHERE question_attempts.is_correct) AS correct
+                FROM days
+                LEFT JOIN question_attempts
+                    ON question_attempts.user_id = %s
+                   AND question_attempts.updated_at::date = days.day
+                GROUP BY days.day
+                ORDER BY days.day ASC
+                """,
+                (user_id,),
+            )
+            weekly_attempts = [
+                {
+                    "date": row[0].strftime("%d %b"),
+                    "attempts": int(row[1] or 0),
+                    "correct": int(row[2] or 0),
+                }
+                for row in cur.fetchall()
+            ]
+
+            cur.execute(
+                """
+                SELECT DISTINCT updated_at::date AS day
+                FROM question_attempts
+                WHERE user_id = %s
+                ORDER BY day DESC
+                LIMIT 60
+                """,
+                (user_id,),
+            )
+            attempt_days = [row[0] for row in cur.fetchall()]
+
+            cur.execute(
+                """
+                SELECT
+                    question_attempts.id,
+                    question_attempts.question_chunk_id,
+                    question_attempts.context,
+                    question_attempts.exam_type,
+                    question_attempts.subject,
+                    question_attempts.chapter,
+                    question_attempts.selected_answer,
+                    question_attempts.correct_answer,
+                    question_attempts.is_correct,
+                    question_attempts.updated_at,
+                    question_chunks.question_text
+                FROM question_attempts
+                JOIN question_chunks ON question_chunks.id = question_attempts.question_chunk_id
+                WHERE question_attempts.user_id = %s
+                ORDER BY question_attempts.updated_at DESC
+                LIMIT 10
+                """,
+                (user_id,),
+            )
+            recent_attempts = [
+                {
+                    "attemptId": row[0],
+                    "questionChunkId": row[1],
+                    "context": row[2],
+                    "examType": row[3],
+                    "subject": row[4],
+                    "chapter": row[5],
+                    "selectedAnswer": row[6],
+                    "correctAnswer": row[7],
+                    "isCorrect": row[8],
+                    "updatedAt": row[9].isoformat(),
+                    "questionText": row[10],
+                }
+                for row in cur.fetchall()
+            ]
+
+    total_attempts = int(total_attempts or 0)
+    correct_attempts = int(correct_attempts or 0)
+    return {
+        "userId": user_id,
+        "totalAttempts": total_attempts,
+        "correctAttempts": correct_attempts,
+        "incorrectAttempts": max(0, total_attempts - correct_attempts),
+        "solvedQuestions": int(solved_questions or 0),
+        "accuracy": _percentage(correct_attempts, total_attempts),
+        "streakDays": _calculate_streak(attempt_days),
+        "lastAttemptAt": last_attempt_at.isoformat() if last_attempt_at else None,
+        "subjectBreakdown": subject_breakdown,
+        "contextBreakdown": context_breakdown,
+        "weeklyAttempts": weekly_attempts,
+        "recentAttempts": recent_attempts,
+    }
+
+
+def _empty_user_progress() -> dict:
+    return {
+        "totalAttempts": 0,
+        "correctAttempts": 0,
+        "incorrectAttempts": 0,
+        "solvedQuestions": 0,
+        "accuracy": 0,
+        "streakDays": 0,
+        "lastAttemptAt": None,
+        "subjectBreakdown": [],
+        "contextBreakdown": [],
+        "weeklyAttempts": [],
+        "recentAttempts": [],
+    }
+
+
+def _normalize_answer(value: str) -> str:
+    value = str(value or "").strip().lower()
+    if value.startswith("i"):
+        value = value[1:]
+    if value.startswith("option "):
+        value = value[7:]
+    value = value.strip().strip("()")
+    return value
+
+
+def _percentage(numerator, denominator) -> int:
+    numerator = int(numerator or 0)
+    denominator = int(denominator or 0)
+    if not denominator:
+        return 0
+    return round((numerator / denominator) * 100)
+
+
+def _calculate_streak(days) -> int:
+    if not days:
+        return 0
+
+    from datetime import date, timedelta
+
+    day_set = set(days)
+    cursor = date.today()
+    if cursor not in day_set and cursor - timedelta(days=1) in day_set:
+        cursor = cursor - timedelta(days=1)
+
+    streak = 0
+    while cursor in day_set:
+        streak += 1
+        cursor = cursor - timedelta(days=1)
+    return streak

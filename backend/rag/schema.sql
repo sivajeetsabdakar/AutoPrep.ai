@@ -46,3 +46,25 @@ CREATE INDEX IF NOT EXISTS question_chunks_embedding_hnsw_idx
 
 CREATE INDEX IF NOT EXISTS question_submissions_user_idx
     ON question_submissions (user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS question_attempts (
+    id bigserial PRIMARY KEY,
+    user_id bigint NOT NULL REFERENCES users(id),
+    question_chunk_id bigint NOT NULL REFERENCES question_chunks(id),
+    context text NOT NULL DEFAULT 'practice',
+    exam_type text NOT NULL CHECK (exam_type IN ('jee', 'neet')),
+    subject text NOT NULL,
+    chapter text,
+    selected_answer text NOT NULL,
+    correct_answer text,
+    is_correct boolean NOT NULL DEFAULT false,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (user_id, question_chunk_id, context)
+);
+
+CREATE INDEX IF NOT EXISTS question_attempts_user_created_idx
+    ON question_attempts (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS question_attempts_user_correct_idx
+    ON question_attempts (user_id, is_correct, created_at DESC);

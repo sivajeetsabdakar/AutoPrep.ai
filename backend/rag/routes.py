@@ -6,7 +6,13 @@ from basetoimage import main as extract_image_text
 
 from .service import RagService
 from .config import get_config
-from .database import get_dashboard_metrics, get_leaderboard, get_problem_of_the_day
+from .database import (
+    get_dashboard_metrics,
+    get_leaderboard,
+    get_problem_of_the_day,
+    get_user_progress,
+    record_question_attempt,
+)
 from .submissions import SubmissionError, submit_question
 
 rag_bp = Blueprint("rag", __name__, url_prefix="/rag")
@@ -120,6 +126,38 @@ def problem_of_the_day():
             "dailyProblems": get_problem_of_the_day(get_config(), exam_type),
         }
     )
+
+
+@rag_bp.post("/question-attempts")
+def question_attempts():
+    data = request.get_json(silent=True) or {}
+    user = data.get("user") or {}
+    attempt = data.get("attempt") or data
+
+    try:
+        result = record_question_attempt(get_config(), user, attempt)
+        return jsonify({"status": "success", "attempt": result})
+    except ValueError as exc:
+        return jsonify({"status": "error", "error": str(exc)}), 400
+    except LookupError as exc:
+        return jsonify({"status": "error", "error": str(exc)}), 404
+    except Exception as exc:
+        print(f"Question attempt failed: {exc}")
+        return jsonify({"status": "error", "error": "Failed to record question attempt."}), 500
+
+
+@rag_bp.post("/user-progress")
+def user_progress():
+    data = request.get_json(silent=True) or {}
+    user = data.get("user") or {}
+
+    try:
+        return jsonify({"status": "success", "progress": get_user_progress(get_config(), user)})
+    except ValueError as exc:
+        return jsonify({"status": "error", "error": str(exc)}), 400
+    except Exception as exc:
+        print(f"User progress failed: {exc}")
+        return jsonify({"status": "error", "error": "Failed to load user progress."}), 500
 
 
 @rag_bp.post("/submit-question")

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useSession } from "next-auth/react"
 import { Navbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,12 +10,14 @@ import { BookOpen, CheckCircle2, RefreshCcw, Target, XCircle } from "lucide-reac
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function ProblemOfDay() {
+  const { data: session } = useSession()
   const [examType, setExamType] = useState("jee")
   const [problems, setProblems] = useState([])
   const [selectedAnswers, setSelectedAnswers] = useState({})
   const [submittedAnswers, setSubmittedAnswers] = useState({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
+  const [saveStatus, setSaveStatus] = useState("")
 
   useEffect(() => {
     let mounted = true
@@ -62,6 +65,35 @@ export default function ProblemOfDay() {
 
   const activeTab = problems[0]?.subject || ""
 
+  const handleSubmitAnswer = async (problem, value) => {
+    setSubmittedAnswers((current) => ({ ...current, [problem.id]: value }))
+    setSaveStatus("")
+
+    if (!session?.user?.email) {
+      setSaveStatus("Sign in to save this attempt to your progress.")
+      return
+    }
+
+    try {
+      const response = await fetch("/api/question-attempts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questionChunkId: problem.id,
+          selectedAnswer: value,
+          context: "problem_of_the_day",
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || "Could not save attempt.")
+      }
+      setSaveStatus("Saved to your progress.")
+    } catch (err) {
+      setSaveStatus(err.message || "Could not save attempt.")
+    }
+  }
+
   return (
     <main className="min-h-screen bg-background">
       <Navbar />
@@ -77,6 +109,7 @@ export default function ProblemOfDay() {
             <p className="mt-2 max-w-2xl text-muted-foreground">
               A fresh set of real questions selected from the indexed JEE/NEET question bank.
             </p>
+            {saveStatus && <p className="mt-2 text-sm text-muted-foreground">{saveStatus}</p>}
           </div>
 
           <div className="flex gap-2">
@@ -123,7 +156,7 @@ export default function ProblemOfDay() {
                         selectedAnswer={selectedAnswers[problem.id] || ""}
                         submittedAnswer={submittedAnswers[problem.id] || ""}
                         onSelect={(value) => setSelectedAnswers((current) => ({ ...current, [problem.id]: value }))}
-                        onSubmit={(value) => setSubmittedAnswers((current) => ({ ...current, [problem.id]: value }))}
+                        onSubmit={(value) => handleSubmitAnswer(problem, value)}
                       />
                     </TabsContent>
                   ))}
