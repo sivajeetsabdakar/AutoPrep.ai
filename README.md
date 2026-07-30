@@ -9,6 +9,10 @@ AutoPrep.ai is an advanced educational platform designed to enrich the preparati
 - Frontend: https://autoprep-ai-theta.vercel.app/
 - Backend API: configure with `NEXT_PUBLIC_BACKEND_URL` in `Frontend/.env.local`
 
+## Software Architecture
+
+![AutoPrep.ai Software Architecture](assets/software-architecture.png)
+
 ## Features
 
 ### 1. Generate Questions
