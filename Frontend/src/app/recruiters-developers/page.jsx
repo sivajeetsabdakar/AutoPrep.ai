@@ -1,9 +1,22 @@
-import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Brain, CheckCircle2, Database, FileSearch, GitBranch, ShieldCheck } from "lucide-react"
+import {
+  ArrowLeft,
+  Brain,
+  CheckCircle2,
+  Database,
+  FileSearch,
+  GitBranch,
+  Github,
+  Layers,
+  Route,
+  Server,
+  ShieldCheck,
+  Workflow,
+} from "lucide-react"
 import { Navbar } from "@/components/navbar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { ArchitectureImageViewer } from "./architecture-image-viewer"
 
 export const metadata = {
   title: "For Recruiters and Developers | AutoPrep.ai",
@@ -60,6 +73,99 @@ const formulas = [
   },
 ]
 
+const diagramSections = [
+  {
+    icon: Layers,
+    title: "Frontend on Vercel",
+    text: "The diagram's frontend block maps to the Next.js App Router pages for home, generate, StudyBuddy, Question Me, submit question, dashboard, leaderboard, explore, and daily practice. API routes sit beside the pages as a server-side boundary for form parsing, session checks, and forwarding requests to Flask.",
+  },
+  {
+    icon: Server,
+    title: "Python Backend on OCI",
+    text: "The backend block is a Flask app served by Gunicorn in Docker. It exposes older CSV endpoints plus the newer `/rag/*` routes for search, question generation, StudyBuddy, submissions, dashboard metrics, leaderboard, daily problems, attempts, and progress.",
+  },
+  {
+    icon: Workflow,
+    title: "RAG Knowledge Pipeline",
+    text: "CSV question banks are normalized into consistent question records, embedded, and inserted into Neon. Runtime queries are embedded as retrieval queries, compared against stored question vectors, and returned as top-K matching practice cards.",
+  },
+  {
+    icon: Database,
+    title: "Neon Postgres and pgvector",
+    text: "The database block centers on `question_chunks`, `users`, `question_submissions`, and `question_attempts`. pgvector stores 384-dimensional embeddings, and an HNSW index keeps cosine-distance retrieval fast enough for interactive use.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Submission Safety",
+    text: "The submission flow validates image type and size, extracts exam metadata and answer content, rejects unsupported exam/subject combinations, checks confidence, and runs duplicate detection before adding accepted questions to the searchable question bank.",
+  },
+  {
+    icon: Route,
+    title: "External Services",
+    text: "Google OAuth handles sign-in, Gemini supports embeddings and multimodal question review, the external chat API generates StudyBuddy explanations, Vercel hosts the frontend, and OCI hosts the Python service.",
+  },
+]
+
+const dataModelRows = [
+  {
+    name: "question_chunks",
+    detail: "Searchable question records with exam, subject, chapter, text, answer, image, source, and embedding vector.",
+  },
+  {
+    name: "users",
+    detail: "Google-linked contributor profiles used for submissions, attempts, progress, and leaderboard attribution.",
+  },
+  {
+    name: "question_submissions",
+    detail: "Audit trail for accepted and rejected uploads, including validation JSON, rejection reason, and linked question id.",
+  },
+  {
+    name: "question_attempts",
+    detail: "Saved answers with selected answer, correct answer, correctness, context, subject, chapter, and timestamps.",
+  },
+]
+
+const architectureFlows = [
+  {
+    title: "Generate Questions",
+    steps: [
+      "Student chooses exam and subject, then uploads a notes image.",
+      "The frontend sends base64 image data through `/api/generate`.",
+      "Flask extracts searchable text with OCR and embeds that text.",
+      "pgvector returns the closest question chunks by cosine distance.",
+      "The UI renders answerable practice cards with answer feedback.",
+    ],
+  },
+  {
+    title: "StudyBuddy",
+    steps: [
+      "Student sends a doubt with optional exam and subject filters.",
+      "Recent chat turns are sent with the current message for follow-up context.",
+      "The backend retrieves related question-bank sources.",
+      "A grounded tutor prompt is sent to the external chat service.",
+      "The response appears with related practice cards below it.",
+    ],
+  },
+  {
+    title: "Problem of the Day",
+    steps: [
+      "The backend selects one daily question per subject for JEE or NEET.",
+      "Selection is stable for the calendar date using an md5-based ordering.",
+      "Students submit MCQ or integer answers and get immediate feedback.",
+      "Signed-in attempts are saved for accuracy, streak, and recent-answer history.",
+    ],
+  },
+  {
+    title: "Question Submission",
+    steps: [
+      "Contributor uploads one image containing a question and answer.",
+      "The backend extracts exam, subject, chapter, question text, and answer.",
+      "Low-confidence, unsupported, incomplete, or duplicate uploads are rejected.",
+      "Accepted rows are inserted into `question_chunks` and immediately become searchable.",
+    ],
+  },
+]
+
 export default function RecruitersDevelopersPage() {
   return (
     <main className="min-h-screen bg-background">
@@ -67,12 +173,20 @@ export default function RecruitersDevelopersPage() {
 
       <section className="border-b bg-accent px-4 py-12 text-accent-foreground md:px-8">
         <div className="mx-auto max-w-6xl">
-          <Button asChild variant="secondary" className="mb-8">
-            <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Home
-            </Link>
-          </Button>
+          <div className="mb-8 flex flex-wrap gap-3">
+            <Button asChild variant="secondary">
+              <Link href="/">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Home
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="bg-white/10 text-white hover:bg-white hover:text-accent">
+              <Link href="https://github.com/sivajeetsabdakar/AutoPrep.ai" target="_blank" rel="noopener noreferrer">
+                <Github className="mr-2 h-4 w-4" />
+                GitHub Repository
+              </Link>
+            </Button>
+          </div>
 
           <div className="max-w-3xl">
             <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/80">For Recruiters and Developers</p>
@@ -89,18 +203,31 @@ export default function RecruitersDevelopersPage() {
         <div className="mx-auto max-w-6xl space-y-10">
           <div>
             <h2 className="mb-4 text-2xl font-semibold">Software Architecture</h2>
-            <div className="overflow-hidden rounded-md border bg-white shadow-sm">
-              <Image
-                src="/software-architecture.png"
-                alt="AutoPrep.ai software architecture diagram"
-                width={2048}
-                height={1152}
-                sizes="(min-width: 1024px) 1024px, 100vw"
-                className="h-auto w-full"
-                priority
-              />
-            </div>
+            <ArchitectureImageViewer />
+            <p className="mt-3 text-sm text-muted-foreground">Click the diagram to inspect it in fullscreen. Press Esc or the close button to return.</p>
           </div>
+
+          <section>
+            <h2 className="mb-4 text-2xl font-semibold">Reading the Architecture Diagram</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              {diagramSections.map((item) => {
+                const Icon = item.icon
+                return (
+                  <Card key={item.title}>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Icon className="h-5 w-5 text-accent" />
+                        {item.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm leading-6 text-muted-foreground">{item.text}</p>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </section>
 
           <div className="grid gap-4 md:grid-cols-2">
             {architecturePoints.map((item) => {
@@ -194,6 +321,47 @@ export default function RecruitersDevelopersPage() {
                 </p>
               </CardContent>
             </Card>
+          </section>
+
+          <section>
+            <h2 className="mb-4 text-2xl font-semibold">Core Data Model</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              {dataModelRows.map((row) => (
+                <Card key={row.name}>
+                  <CardHeader>
+                    <CardTitle className="font-mono text-base">{row.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-6 text-muted-foreground">{row.detail}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="mb-4 text-2xl font-semibold">Feature Flows</h2>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {architectureFlows.map((flow) => (
+                <Card key={flow.title}>
+                  <CardHeader>
+                    <CardTitle>{flow.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ol className="space-y-3">
+                      {flow.steps.map((step, index) => (
+                        <li key={step} className="flex gap-3 text-sm leading-6 text-muted-foreground">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
+                            {index + 1}
+                          </span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </section>
 
           <section>
