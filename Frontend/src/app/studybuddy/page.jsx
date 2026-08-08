@@ -13,7 +13,7 @@ const STORAGE_KEY = "autoprep.studybuddy.messages"
 const STARTER_MESSAGE = {
   id: "welcome",
   role: "assistant",
-  content: "Ask me a JEE or NEET doubt. I can use your previous messages plus the RAG question bank to explain concepts and suggest practice.",
+  content: "Ask me a JEE or NEET doubt. I can explain the concept, use this chat for follow-up questions, and suggest related practice.",
   sources: [],
 }
 
@@ -126,7 +126,7 @@ export default function StudyBuddy() {
               <Bot className="h-5 w-5 text-accent" />
               <h1 className="text-xl font-semibold">StudyBuddy</h1>
             </div>
-            <p className="text-sm text-muted-foreground">RAG-powered tutor with memory for this chat</p>
+            <p className="text-sm text-muted-foreground">Concept help with follow-up memory and related practice</p>
           </div>
           <Button variant="ghost" size="icon" onClick={resetChat} title="Reset chat">
             <RotateCcw className="h-4 w-4" />
@@ -142,7 +142,7 @@ export default function StudyBuddy() {
               <div className="flex gap-3">
                 <Avatar role="assistant" />
                 <div className="rounded-lg border bg-muted px-4 py-3 text-sm text-muted-foreground">
-                  Thinking with RAG context...
+                  Finding a useful explanation...
                 </div>
               </div>
             )}
@@ -256,7 +256,7 @@ function Sources({ sources }) {
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         <BookOpen className="h-4 w-4" />
-        Retrieved practice from question bank
+        Related practice
       </div>
       <div className="grid gap-2">
         {sources.slice(0, 3).map((source, index) => (
@@ -375,7 +375,7 @@ function PracticeSource({ source, index }) {
             </div>
           )}
 
-          {!hasAnswer && <p className="text-muted-foreground">No stored answer is available for this retrieved question.</p>}
+          {!hasAnswer && <p className="text-muted-foreground">No answer is available for this question yet.</p>}
 
           {hasAnswered && (
             <div className={`flex items-start gap-2 rounded-md border p-3 ${isCorrect ? "border-green-500/40 bg-green-500/10 text-green-700" : "border-red-500/40 bg-red-500/10 text-red-700"}`}>

@@ -144,7 +144,7 @@ export default async function Explore() {
             Education News & Updates
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {isLive ? "Updated hourly from live education news" : "Showing official sources"}
+            {isLive ? "Updated hourly" : "Showing official sources"}
           </p>
         </div>
 

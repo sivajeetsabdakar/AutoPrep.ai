@@ -57,11 +57,11 @@ export default function Leaderboard() {
           <div>
             <div className="mb-2 flex items-center gap-2 text-sm font-medium text-accent">
               <Trophy className="h-4 w-4" />
-              Live contribution ranking
+              Contribution ranking
             </div>
             <h1 className="text-3xl font-bold tracking-normal md:text-4xl">Leaderboard</h1>
             <p className="mt-2 max-w-2xl text-muted-foreground">
-              Ranked from real approved question submissions in the RAG knowledge base.
+              See who has contributed the most approved JEE and NEET practice questions.
             </p>
           </div>
 
@@ -74,7 +74,7 @@ export default function Leaderboard() {
         {isLoading ? (
           <Card>
             <CardContent className="flex h-64 items-center justify-center text-muted-foreground">
-              Loading live leaderboard...
+              Loading leaderboard...
             </CardContent>
           </Card>
         ) : error ? (
@@ -87,9 +87,9 @@ export default function Leaderboard() {
           <Card>
             <CardContent className="flex h-64 flex-col items-center justify-center text-center">
               <Trophy className="mb-4 h-10 w-10 text-muted-foreground" />
-              <h2 className="text-xl font-semibold">No real submissions yet</h2>
+              <h2 className="text-xl font-semibold">No approved submissions yet</h2>
               <p className="mt-2 max-w-md text-muted-foreground">
-                Once signed-in users submit JEE or NEET questions that pass AI validation, contributors will appear here.
+                Contributors will appear here after submitted questions are approved.
               </p>
             </CardContent>
           </Card>

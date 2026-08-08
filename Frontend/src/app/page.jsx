@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Navbar } from "@/components/navbar"
-import { Brain, Database, Search, ShieldCheck, Target, Upload } from "lucide-react"
+import { Brain, Code2, Database, Search, ShieldCheck, Target, Upload } from "lucide-react"
 import Link from "next/link"
 
 export default function Home() {
@@ -10,13 +10,26 @@ export default function Home() {
       <Navbar />
       
       {/* Hero Section */}
-      <section className="pt-20 sm:pt-32 pb-16 sm:pb-20 px-4 bg-accent">
+      <section className="relative pt-20 sm:pt-32 pb-16 sm:pb-20 px-4 bg-accent">
+        <Link
+          href="/recruiters-developers"
+          className="recruiter-float group absolute right-3 top-4 z-10 block max-w-64 rounded-md border border-white/30 bg-white/95 p-3 text-left text-accent shadow-lg transition hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-white sm:right-4 sm:top-6 sm:max-w-72 lg:right-8"
+          aria-label="For Recruiters and Developers: If you want to explore how it works, click here"
+        >
+          <div className="flex items-center gap-2">
+            <Code2 className="h-4 w-4 shrink-0" />
+            <span className="text-sm font-semibold">For Recruiters and Developers</span>
+          </div>
+          <p className="mt-2 max-h-0 overflow-hidden text-xs text-muted-foreground opacity-0 transition-all duration-300 group-hover:max-h-12 group-hover:opacity-100 group-focus:max-h-12 group-focus:opacity-100">
+            If you want to explore how it works, Click here
+          </p>
+        </Link>
         <div className="container mx-auto text-center text-white">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6">
-            Master JEE & NEET with AI-Powered Learning
+            Practice Smarter for JEE & NEET
           </h1>
           <p className="text-lg sm:text-xl md:text-2xl mb-8 max-w-2xl mx-auto">
-            Upload your notes, get personalized questions, and track your progress with our intelligent learning system.
+            Upload notes, find topic-matched questions, solve daily practice, and track your progress.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Button asChild size="lg" variant="secondary">
@@ -44,12 +57,12 @@ export default function Home() {
             <FeatureCard
               icon={<Upload className="h-12 w-12 text-accent" />}
               title="Upload Your Notes"
-              description="Simply upload your textbooks or notes, and our AI will analyze them to create personalized questions."
+              description="Upload a notes image and get practice questions that match the topic."
             />
             <FeatureCard
               icon={<Brain className="h-12 w-12 text-accent" />}
-              title="Previous Year Questions based on your notes"
-              description="Get practice PYQs that match your the topics in your uploaded image/text."
+              title="Previous Year Questions"
+              description="Find JEE and NEET PYQs related to the concept you are studying."
             />
             <FeatureCard
               icon={<Target className="h-12 w-12 text-accent" />}
@@ -63,23 +76,23 @@ export default function Home() {
       <section className="py-16 sm:py-20 bg-muted">
         <div className="container mx-auto px-4">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-12">
-            Built Around Real Practice Data
+            Practice Tools for Exam Prep
           </h2>
           <div className="grid gap-8 grid-cols-1 md:grid-cols-3">
             <FeatureCard
               icon={<Database className="h-12 w-12 text-accent" />}
-              title="Indexed Question Bank"
-              description="Practice is retrieved from the stored JEE/NEET question index instead of demo cards."
+              title="Question Bank"
+              description="Practice with JEE and NEET questions organized by exam, subject, and topic."
             />
             <FeatureCard
               icon={<Search className="h-12 w-12 text-accent" />}
-              title="RAG Search"
-              description="StudyBuddy and generated practice use semantic retrieval to find relevant question context."
+              title="Smart Search"
+              description="Find related questions even when your wording differs from the source material."
             />
             <FeatureCard
               icon={<ShieldCheck className="h-12 w-12 text-accent" />}
-              title="Validated Contributions"
-              description="Signed-in users can submit question images that are validated before entering the RAG index."
+              title="Question Contributions"
+              description="Submit question images for review so useful practice material can be added."
             />
           </div>
         </div>

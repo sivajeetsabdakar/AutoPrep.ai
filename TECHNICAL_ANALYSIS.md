@@ -706,6 +706,8 @@ Important backend RAG routes:
 - `POST /rag/generate-questions`
 - `POST /rag/studybuddy`
 - `POST /rag/submit-question`
+- `POST /rag/question-attempts`
+- `POST /rag/user-progress`
 - `GET /rag/dashboard-metrics`
 - `GET /rag/leaderboard`
 - `GET /rag/problem-of-the-day?examType=jee|neet`
@@ -715,13 +717,287 @@ Important frontend proxy routes:
 - `GET /api/problem-of-the-day`
 - `GET /api/dashboard-metrics`
 - `GET /api/leaderboard`
+- `POST /api/question-attempts`
+- `GET /api/user-progress`
 - `POST /api/studybuddy`
 - `POST /api/generate`
 - `POST /api/submit-question`
 - `GET /api/get-questions`
 - `/api/auth/[...nextauth]`
 
-## 16. Verification Snapshot
+## 16. Mathematical Formulas and Scoring Rules
+
+This section lists the formulas and rule-based calculations used by AutoPrep.ai. Most production retrieval uses vector embeddings and pgvector. Older CSV fallback paths still use TF-IDF with cosine similarity.
+
+### Vector Similarity for RAG Retrieval
+
+Each question and user query is represented as an embedding vector:
+
+```txt
+q = [q1, q2, ..., q384]
+d = [d1, d2, ..., d384]
+```
+
+Cosine similarity is conceptually:
+
+```txt
+cosine_similarity(q, d) = (q . d) / (||q|| * ||d||)
+```
+
+In Neon pgvector, AutoPrep uses cosine distance through the `<=>` operator and converts it into a similarity score:
+
+```sql
+1 - (embedding <=> query_embedding) AS score
+```
+
+Rows are ranked by ascending cosine distance:
+
+```sql
+ORDER BY embedding <=> query_embedding
+```
+
+Interpretation:
+
+- Higher `score` means the stored question is semantically closer to the student query.
+- Lower cosine distance means a better match.
+- The Generate and StudyBuddy flows return the top-K closest rows.
+
+### Top-K Retrieval
+
+The backend limits retrieval to a bounded number of best matches:
+
+```txt
+TopK(query) = first K rows after sorting by cosine distance ascending
+```
+
+The route layer clamps K into a small range:
+
+```txt
+limit = max(1, min(requested_limit, 20))
+```
+
+The Generate flow currently sends:
+
+```txt
+topK = 8
+```
+
+### Duplicate Detection
+
+For an accepted-looking user submission, the backend embeds the extracted question and answer, searches for the closest existing question in the same exam and subject, and compares the score to a configured threshold:
+
+```txt
+duplicate if similarity_score >= DUPLICATE_SCORE_THRESHOLD
+```
+
+Default:
+
+```env
+DUPLICATE_SCORE_THRESHOLD=0.92
+```
+
+This prevents near-identical submissions from being inserted into `question_chunks`.
+
+### Submission Confidence Threshold
+
+Gemini multimodal validation returns a confidence value in the range `0.0` to `1.0`. AutoPrep accepts the extracted question only if the confidence meets the configured minimum:
+
+```txt
+accept_validation if confidence >= SUBMISSION_CONFIDENCE_THRESHOLD
+```
+
+Default:
+
+```env
+SUBMISSION_CONFIDENCE_THRESHOLD=0.7
+```
+
+The frontend displays this as a percentage:
+
+```txt
+display_confidence = round(confidence * 100)
+```
+
+### TF-IDF Fallback Retrieval
+
+Legacy CSV retrieval and the RAG CSV fallback use TF-IDF when pgvector retrieval is unavailable.
+
+Term frequency:
+
+```txt
+tf(t, d) = count(t in d) / total_terms(d)
+```
+
+Inverse document frequency:
+
+```txt
+idf(t) = log(N / df(t))
+```
+
+TF-IDF weight:
+
+```txt
+tfidf(t, d) = tf(t, d) * idf(t)
+```
+
+The implementation uses scikit-learn `TfidfVectorizer`, which handles tokenization, normalization, and smoothing internally. Similarity is then computed with cosine similarity:
+
+```txt
+cosine_similarity(query_vector, document_vector)
+```
+
+Examples in the older subject modules:
+
+- Chemistry keeps results only when `score > 0.2`.
+- Mathematics chooses the most similar chapter only when `similarity_score > 0.5`.
+- The newer CSV fallback ranks all available rows by TF-IDF cosine similarity and returns the requested top-K.
+
+### Daily Problem Rotation
+
+Daily problems are selected with a stable pseudo-random ordering per subject:
+
+```sql
+row_number() OVER (
+  PARTITION BY subject
+  ORDER BY md5(COALESCE(external_id, id::text) || current_date::text)
+) AS daily_rank
+```
+
+The selected daily problem is:
+
+```txt
+daily_problem(subject, date) = row where daily_rank = 1
+```
+
+This makes the result stable for a calendar date while rotating automatically on the next date.
+
+### Answer Checking
+
+Stored and selected answers are normalized before comparison:
+
+```txt
+normalized_answer = trim(lowercase(answer))
+```
+
+Additional cleanup removes common wrappers:
+
+```txt
+"Option 2" -> "2"
+"(2)" -> "2"
+"i 42" -> "42" for integer-answer questions
+```
+
+Correctness is exact equality after normalization:
+
+```txt
+is_correct = normalized_selected_answer == normalized_correct_answer
+```
+
+### User Progress Metrics
+
+Total attempts:
+
+```txt
+total_attempts = count(question_attempts)
+```
+
+Correct attempts:
+
+```txt
+correct_attempts = count(question_attempts where is_correct = true)
+```
+
+Incorrect attempts:
+
+```txt
+incorrect_attempts = max(0, total_attempts - correct_attempts)
+```
+
+Accuracy:
+
+```txt
+accuracy_percent = round((correct_attempts / total_attempts) * 100)
+```
+
+If `total_attempts = 0`, accuracy is reported as `0`.
+
+Solved questions:
+
+```txt
+solved_questions = count(distinct question_chunk_id)
+```
+
+### Practice Streak
+
+The backend builds the set of distinct attempt dates for a user and counts consecutive active days ending today. If the user has no attempt today but did attempt yesterday, the streak starts from yesterday:
+
+```txt
+cursor = today if today in attempt_days else yesterday
+streak = consecutive days where cursor in attempt_days
+```
+
+This allows an active streak to remain visible until the next missed day fully passes.
+
+### Leaderboard Scoring
+
+Leaderboard points are based only on accepted question submissions:
+
+```txt
+points = accepted_submissions * 100
+```
+
+Ranking order:
+
+```txt
+accepted_submissions desc,
+total_submissions desc,
+latest_activity desc
+```
+
+Badges are assigned from rank and accepted count:
+
+```txt
+rank 1 with accepted_count > 0 -> Top contributor
+rank 2 or 3 with accepted_count > 0 -> Core contributor
+accepted_count > 0 -> Verified contributor
+otherwise -> New contributor
+```
+
+### Dashboard Aggregations
+
+Acceptance rate:
+
+```txt
+acceptance_rate = round((accepted_submissions / total_submissions) * 100)
+```
+
+If `total_submissions = 0`, acceptance rate is `0`.
+
+Subject coverage bar values are normalized to the largest subject count:
+
+```txt
+subject_coverage_percent = round((subject_total / max_subject_total) * 100)
+```
+
+Weekly ingest and weekly attempt charts use seven calendar buckets:
+
+```txt
+date range = current_date - 6 days through current_date
+```
+
+### Relative Time Display
+
+Recent activity timestamps are shown with rounded units:
+
+```txt
+minutes = max(1, round((now - timestamp) / 60000))
+hours = round(minutes / 60)
+days = round(hours / 24)
+```
+
+The frontend displays minutes when `< 60`, hours when `< 24`, and days after that.
+
+## 17. Verification Snapshot
 
 Latest verification commands used:
 
@@ -754,7 +1030,7 @@ The backend daily problem endpoint also returned NEET coverage:
 physics, chemistry, biology
 ```
 
-## 17. Updated Known Limitations and Next Improvements
+## 18. Updated Known Limitations and Next Improvements
 
 The earlier known limitations still matter, but the static/prototype statement has been reduced in scope by the recent work. The largest remaining improvements are:
 

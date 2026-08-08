@@ -100,7 +100,7 @@ export default function SubmitQuestion() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-muted-foreground">
-                Sign in with Google to submit JEE/NEET question images for AI validation.
+                Sign in to upload JEE/NEET question images for review.
               </p>
               <Button className="w-full bg-accent hover:bg-accent-dark" onClick={() => signIn("google", { callbackUrl: "/submit-question" })}>
                 Continue with Google
@@ -160,7 +160,7 @@ export default function SubmitQuestion() {
                 disabled={!file || isSubmitting}
                 onClick={handleSubmit}
               >
-                {isSubmitting ? "Validating with AI..." : "Submit for Validation"}
+                {isSubmitting ? "Reviewing image..." : "Submit for Review"}
               </Button>
 
               {error && <p className="text-sm text-red-500">{error}</p>}
@@ -169,11 +169,11 @@ export default function SubmitQuestion() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Validation Result</CardTitle>
+              <CardTitle>Review Result</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {!result ? (
-                <p className="text-muted-foreground">AI validation will extract the exam, subject, question text, and answer before storing it.</p>
+                <p className="text-muted-foreground">We will extract the exam, subject, question text, and answer from your image.</p>
               ) : result.accepted ? (
                 <StatusBlock accepted result={result} />
               ) : (
@@ -194,7 +194,7 @@ function StatusBlock({ accepted = false, result }) {
     <div className="space-y-4">
       <div className={`flex items-center rounded-md border p-4 ${accepted ? "text-green-600" : "text-red-600"}`}>
         {accepted ? <CheckCircle2 className="mr-2 h-5 w-5" /> : <XCircle className="mr-2 h-5 w-5" />}
-        <span className="font-medium">{accepted ? "Accepted into the RAG question bank" : "Rejected"}</span>
+        <span className="font-medium">{accepted ? "Accepted into the question bank" : "Rejected"}</span>
       </div>
 
       {!accepted && result.rejectionReason && (

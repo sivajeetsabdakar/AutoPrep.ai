@@ -7,8 +7,8 @@ import { AppSessionProvider } from "@/components/session-provider";
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: 'AutoPrep.ai - AI-Powered JEE/NEET Preparation',
-  description: 'Personalized JEE and NEET preparation powered by AI. Upload your notes, practice daily problems, and track your progress.',
+  title: 'AutoPrep.ai - JEE/NEET Practice',
+  description: 'Upload your notes, find topic-matched questions, practice daily problems, and track your progress.',
 };
 
 export default function RootLayout({

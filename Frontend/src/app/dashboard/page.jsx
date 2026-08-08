@@ -132,7 +132,7 @@ export default function Dashboard() {
         <div className="mb-8 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-3xl font-semibold">Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Live platform metrics from Neon and the RAG index</p>
+            <p className="text-sm text-muted-foreground">Track practice progress, question coverage, and contribution activity.</p>
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
@@ -151,7 +151,7 @@ export default function Dashboard() {
             <div>
               <h2 className="text-xl font-semibold">Your Progress</h2>
               <p className="text-sm text-muted-foreground">
-                Saved attempts, accuracy, and streak from authenticated practice.
+                Review saved attempts, accuracy, and your current practice streak.
               </p>
             </div>
             {isProgressLoading && <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />}
@@ -162,7 +162,7 @@ export default function Dashboard() {
               <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium">Sign in to track personal progress</p>
-                  <p className="text-sm text-muted-foreground">Daily problem answers will save to your dashboard once you are signed in.</p>
+                  <p className="text-sm text-muted-foreground">Save daily problem answers and review your progress over time.</p>
                 </div>
                 <Button onClick={() => signIn("google", { callbackUrl: "/dashboard" })}>Sign In</Button>
               </CardContent>
@@ -245,7 +245,7 @@ export default function Dashboard() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">No saved answers yet. Try the daily problems while signed in.</p>
+                      <p className="text-sm text-muted-foreground">No saved answers yet. Try the daily problems to start tracking progress.</p>
                     )}
                   </CardContent>
                 </Card>
@@ -278,7 +278,7 @@ export default function Dashboard() {
         <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             icon={<Database className="h-5 w-5 text-accent" />}
-            title="Indexed Questions"
+            title="Question Bank"
             value={formatNumber(metrics.questionCount)}
             subtitle={examSummary}
           />
@@ -292,19 +292,19 @@ export default function Dashboard() {
             icon={<Users className="h-5 w-5 text-accent" />}
             title="Contributors"
             value={formatNumber(metrics.contributorCount)}
-            subtitle="Google-auth users in Neon"
+            subtitle="People adding practice questions"
           />
           <StatCard
             icon={<Brain className="h-5 w-5 text-secondary" />}
             title="Subjects Covered"
             value={formatNumber(metrics.subjectBreakdown.length)}
-            subtitle="Available for RAG retrieval"
+            subtitle="Available for practice"
           />
         </div>
 
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle>New RAG Items This Week</CardTitle>
+            <CardTitle>New Questions This Week</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -341,7 +341,7 @@ export default function Dashboard() {
                   />
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground">No indexed questions found yet.</p>
+                <p className="text-sm text-muted-foreground">No questions found yet.</p>
               )}
             </CardContent>
           </Card>
@@ -363,7 +363,7 @@ export default function Dashboard() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">No recent RAG or submission activity yet.</p>
+                  <p className="text-sm text-muted-foreground">No recent question or submission activity yet.</p>
                 )}
               </div>
             </CardContent>

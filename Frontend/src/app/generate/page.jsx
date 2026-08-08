@@ -62,7 +62,7 @@ export default function Generate() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to generate questions");
+        throw new Error(errorData.error || "Failed to find questions");
       }
       const data = await response.json();
       setGeneratedQuestions(data.questions || []);
@@ -70,7 +70,7 @@ export default function Generate() {
       if (error.name === 'AbortError') {
         setError("The request timed out. Try a clearer image or a smaller file.");
       } else {
-        setError(error.message || "Could not generate questions.");
+        setError(error.message || "Could not find questions.");
       }
     } finally {
       clearTimeout(timeoutId);
@@ -86,7 +86,7 @@ export default function Generate() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mx-auto">
           <Card className="md:mx-4 md:my-4 mx-2 my-2">
             <CardHeader>
-              <CardTitle>Generate Questions</CardTitle>
+              <CardTitle>Find Practice Questions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6 md:p-6 p-4">
               <div className="space-y-4">
@@ -153,7 +153,7 @@ export default function Generate() {
                 onClick={handleGenerate}
                 disabled={!examType || !subject || !file || isLoading}
               >
-                {isLoading ? "Generating..." : "Generate Questions"}
+                {isLoading ? "Finding questions..." : "Find Questions"}
               </Button>
               {error && <p className="text-sm text-red-500">{error}</p>}
             </CardContent>
@@ -165,7 +165,7 @@ export default function Generate() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <FileText className="mr-2 h-5 w-5" />
-                  Generated Questions
+                  Practice Questions
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-sm md:text-base md:p-6 p-4">
@@ -247,7 +247,7 @@ export default function Generate() {
                     </Card>
                   ))
                 ) : (
-                  <p className="text-center py-8">Upload an image to see AI-generated questions</p>
+                  <p className="text-center py-8">Upload an image to see matching practice questions.</p>
                 )}
               </CardContent>
             </Card>

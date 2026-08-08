@@ -103,11 +103,11 @@ export default function ProblemOfDay() {
           <div>
             <div className="mb-2 flex items-center gap-2 text-sm font-medium text-accent">
               <Target className="h-4 w-4" />
-              Daily RAG practice
+              Daily practice
             </div>
             <h1 className="text-3xl font-bold tracking-normal md:text-4xl">Problem of the Day</h1>
             <p className="mt-2 max-w-2xl text-muted-foreground">
-              A fresh set of real questions selected from the indexed JEE/NEET question bank.
+              Solve one fresh question per subject and check your answer instantly.
             </p>
             {saveStatus && <p className="mt-2 text-sm text-muted-foreground">{saveStatus}</p>}
           </div>
@@ -137,7 +137,7 @@ export default function ProblemOfDay() {
                 <div className="flex h-72 items-center justify-center text-center text-red-500">{error}</div>
               ) : problems.length === 0 ? (
                 <div className="flex h-72 items-center justify-center text-center text-muted-foreground">
-                  No indexed questions found for this exam yet.
+                  No questions are available for this exam yet.
                 </div>
               ) : (
                 <Tabs defaultValue={activeTab} className="space-y-5">
@@ -186,8 +186,8 @@ export default function ProblemOfDay() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <p>Questions are selected from Neon `question_chunks` using a daily rotation.</p>
-                <p>They refresh automatically when the calendar day changes on the backend.</p>
+                <p>Questions refresh each day for the selected exam.</p>
+                <p>Practice across Physics, Chemistry, and the exam-specific third subject.</p>
               </CardContent>
             </Card>
           </div>
